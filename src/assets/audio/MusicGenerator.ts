@@ -1,4 +1,6 @@
-// Web Audio API 背景音乐生成器（单例模式，复用 AudioContext）
+// Web Audio API 背景音乐生成器（单例模式，复用共享 AudioContext）
+
+import { getAudioContext } from './AudioContextSingleton'
 
 type Note = [freq: number, dur: number] // freq=0 表示休止符
 
@@ -63,8 +65,7 @@ export type MusicTheme = 'overworld' | 'underground' | 'castle'
 
 export class MusicGenerator {
   private static instance: MusicGenerator | null = null
-  private ctx: AudioContext | null = null
-  private currentTheme: MusicTheme | null = null
+    private currentTheme: MusicTheme | null = null
   private isPlaying = false
   private loopTimer: ReturnType<typeof setTimeout> | null = null
   private readonly VOLUME = 0.06
@@ -78,13 +79,7 @@ export class MusicGenerator {
     return MusicGenerator.instance
   }
 
-  private getCtx(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext()
-    }
-    return this.ctx
-  }
-
+  
   /** 开始播放指定主题的 BGM */
   play(theme: MusicTheme): void {
     if (this.isPlaying && this.currentTheme === theme) return
@@ -112,7 +107,7 @@ export class MusicGenerator {
     const melody = this.currentTheme === 'underground' ? UNDERGROUND_MELODY
       : this.currentTheme === 'castle' ? CASTLE_MELODY
       : OVERWORLD_MELODY
-    const ctx = this.getCtx()
+    const ctx = getAudioContext()
     const now = ctx.currentTime
     let timeOffset = 0
 

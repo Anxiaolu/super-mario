@@ -16,6 +16,7 @@ import { CollisionSystem } from '../systems/CollisionSystem'
 import { ScoreSystem } from '../systems/ScoreSystem'
 import { SoundGenerator } from '../assets/audio/SoundGenerator'
 import { MusicGenerator, MusicTheme } from '../assets/audio/MusicGenerator'
+import { isEnemy } from '../utils/typeGuards'
 import { getLevel, getLevelCount } from '../data/levels'
 import { TILE_SIZE, GAME_WIDTH, GAME_HEIGHT, SKY_COLOR, UNDERGROUND_BG } from '../config/constants'
 import type { LevelData } from '../data/levels/types'
@@ -155,13 +156,13 @@ export class GameScene extends Phaser.Scene {
     // 火球与敌人碰撞
     this.physics.add.overlap(this.fireballs, this.enemies, (fbObj, enemyObj) => {
       if (!(fbObj instanceof Fireball)) return
-      const enemy = enemyObj as unknown as Goomba | Koopa | BuzzyBeetle | HammerBro
+      if (!isEnemy(enemyObj)) return
       if (!fbObj.active) return
-      if (enemy instanceof BuzzyBeetle || !enemy.alive) {
+      if (enemyObj instanceof BuzzyBeetle || !enemyObj.alive) {
         fbObj.destroy()
         return
       }
-      enemy.kill()
+      enemyObj.kill()
       fbObj.destroy()
       this.sfx.playStomp()
     })
@@ -208,9 +209,9 @@ export class GameScene extends Phaser.Scene {
 
     // 更新敌人（直接迭代，避免数组展开）
     for (const child of this.enemies.getChildren()) {
-      const enemy = child as Goomba | Koopa | BuzzyBeetle | HammerBro
-      if (enemy.active) {
-        enemy.update(time, delta)
+      if (!isEnemy(child)) continue
+      if (child.active) {
+        child.update(time, delta)
       }
     }
 
@@ -326,7 +327,8 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private handleHammerThrow(x: number, y: number, dir: number): void {
+  private handleHammerThrow(x: number, y: number): void {
+    const dir = x < this.mario.x ? -1 : 1
     const hammer = new Hammer(this, x, y, dir)
     this.hammers.add(hammer)
   }
@@ -408,5 +410,6 @@ export class GameScene extends Phaser.Scene {
     this.events.off('mario-shoot', this.handleMarioShoot, this)
     this.events.off('bowser-fire', this.handleBowserFire, this)
     this.events.off('hammer-throw', this.handleHammerThrow, this)
+    this.physics.world.colliders.destroy()
   }
 }

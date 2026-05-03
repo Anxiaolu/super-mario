@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser'
+import { BaseEnemy } from './BaseEnemy'
 import { DESTROY_Y_THRESHOLD } from '../config/constants'
 
-export class Bowser extends Phaser.Physics.Arcade.Sprite {
-  private isAlive = true
+export class Bowser extends BaseEnemy {
   private hp = 5
   private moveDir = -1
   private readonly SPEED = 25
@@ -12,11 +12,6 @@ export class Bowser extends Phaser.Physics.Arcade.Sprite {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'bowser-1')
 
-    scene.add.existing(this)
-    scene.physics.add.existing(this)
-
-    this.setOrigin(0.5, 1)
-    this.setBounce(0)
     this.setVelocityX(this.SPEED * this.moveDir)
 
     const body = this.body as Phaser.Physics.Arcade.Body
@@ -27,13 +22,16 @@ export class Bowser extends Phaser.Physics.Arcade.Sprite {
     this.fireTimer = Phaser.Math.Between(3000, 6000)
   }
 
+  reverse(): void {
+    // Bowser 自行处理碰壁反转
+  }
+
   hit(): void {
-    if (!this.isAlive) return
+    if (!this.alive) return
     this.hp--
     if (this.hp <= 0) {
       this.kill()
     } else {
-      // 受击闪烁
       this.setTint(0xff0000)
       this.scene.time.delayedCall(100, () => {
         if (this.active) this.clearTint()
@@ -41,9 +39,10 @@ export class Bowser extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  // 覆写 kill：Bowser 向下落入深渊（不同于普通敌人的上弹渐隐）
   kill(): void {
-    if (!this.isAlive) return
-    this.isAlive = false
+    if (!this.aliveFlag) return
+    this.aliveFlag = false
     const body = this.body as Phaser.Physics.Arcade.Body
     body.enable = false
     this.scene.tweens.add({
@@ -55,10 +54,8 @@ export class Bowser extends Phaser.Physics.Arcade.Sprite {
     })
   }
 
-  get alive(): boolean { return this.isAlive }
-
   update(time: number, delta: number): void {
-    if (!this.isAlive) return
+    if (!this.aliveFlag) return
 
     const body = this.body as Phaser.Physics.Arcade.Body
     if (!body) return

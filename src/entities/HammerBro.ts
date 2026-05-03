@@ -1,8 +1,7 @@
 import * as Phaser from 'phaser'
-import { DESTROY_Y_THRESHOLD } from '../config/constants'
+import { BaseEnemy } from './BaseEnemy'
 
-export class HammerBro extends Phaser.Physics.Arcade.Sprite {
-  private isAlive = true
+export class HammerBro extends BaseEnemy {
   private jumpTimer = 0
   private throwTimer = 0
   private readonly JUMP_INTERVAL = 2500
@@ -10,12 +9,6 @@ export class HammerBro extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'hammer-bro-1')
-
-    scene.add.existing(this)
-    scene.physics.add.existing(this)
-
-    this.setOrigin(0.5, 1)
-    this.setBounce(0)
 
     const body = this.body as Phaser.Physics.Arcade.Body
     body.setSize(14, 16)
@@ -26,32 +19,15 @@ export class HammerBro extends Phaser.Physics.Arcade.Sprite {
   }
 
   stomp(): void {
-    if (!this.isAlive) return
     this.kill()
   }
 
   reverse(): void {
-    // Hammer Bro 不反转方向，忽略
+    // HammerBro 不反转方向
   }
-
-  kill(): void {
-    if (!this.isAlive) return
-    this.isAlive = false
-    const body = this.body as Phaser.Physics.Arcade.Body
-    body.enable = false
-    this.scene.tweens.add({
-      targets: this,
-      y: this.y - 48,
-      alpha: 0,
-      duration: 500,
-      onComplete: () => this.destroy(),
-    })
-  }
-
-  get alive(): boolean { return this.isAlive }
 
   update(time: number, delta: number): void {
-    if (!this.isAlive) return
+    if (!this.alive) return
 
     const body = this.body as Phaser.Physics.Arcade.Body
     if (!body) return
@@ -64,19 +40,18 @@ export class HammerBro extends Phaser.Physics.Arcade.Sprite {
       this.jumpTimer = this.JUMP_INTERVAL
     }
 
-    // 定期投掷锤子
+    // 定期投掷锤子（不再传方向，由 GameScene 计算）
     this.throwTimer -= delta
     if (this.throwTimer <= 0) {
       this.throwTimer = this.THROW_INTERVAL
-      this.scene.events.emit('hammer-throw', this.x, this.y - 8, Phaser.Math.Between(-1, 1))
+      this.scene.events.emit('hammer-throw', this.x, this.y - 8)
     }
 
     // 动画帧
     const frame = Math.floor(time / 300) % 2 === 0 ? 'hammer-bro-1' : 'hammer-bro-2'
     this.setTexture(frame)
 
-    if (this.y > DESTROY_Y_THRESHOLD) {
-      this.destroy()
-    }
+    // 掉落销毁
+    super.update(time, delta)
   }
 }

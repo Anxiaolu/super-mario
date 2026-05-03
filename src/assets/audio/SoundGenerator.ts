@@ -1,8 +1,9 @@
-// Web Audio API 8-bit 音效生成器（单例模式，复用 AudioContext）
+// Web Audio API 8-bit 音效生成器（单例模式，复用共享 AudioContext）
+
+import { getAudioContext } from './AudioContextSingleton'
 
 export class SoundGenerator {
   private static instance: SoundGenerator | null = null
-  private ctx: AudioContext | null = null
 
   private constructor() {}
 
@@ -13,16 +14,9 @@ export class SoundGenerator {
     return SoundGenerator.instance
   }
 
-  private getCtx(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext()
-    }
-    return this.ctx
-  }
-
   // 单音辅助方法
   private playTone(type: OscillatorType, startFreq: number, endFreq: number, duration: number, volume = 0.15): void {
-    const ctx = this.getCtx()
+    const ctx = getAudioContext()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = type
@@ -37,7 +31,7 @@ export class SoundGenerator {
 
   // 多音符辅助方法
   private playNotes(notes: number[], noteDuration: number, type: OscillatorType = 'square', volume = 0.12): void {
-    const ctx = this.getCtx()
+    const ctx = getAudioContext()
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()

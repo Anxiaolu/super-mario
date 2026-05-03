@@ -4,6 +4,7 @@ import { Goomba } from '../entities/Goomba'
 import { Koopa } from '../entities/Koopa'
 import { BuzzyBeetle } from '../entities/BuzzyBeetle'
 import { HammerBro } from '../entities/HammerBro'
+import { isEnemy, type Enemy } from '../utils/typeGuards'
 import {
   TILE,
   BREAKABLE_TILES,
@@ -16,12 +17,6 @@ import { SoundGenerator } from '../assets/audio/SoundGenerator'
 import { ScoreSystem } from './ScoreSystem'
 
 type ArcadeBody = Phaser.Physics.Arcade.Body
-
-type Enemy = Goomba | Koopa | BuzzyBeetle | HammerBro
-
-function isEnemy(obj: unknown): obj is Enemy {
-  return obj instanceof Goomba || obj instanceof Koopa || obj instanceof BuzzyBeetle || obj instanceof HammerBro
-}
 
 export class CollisionSystem {
   private scene: Phaser.Scene
@@ -200,9 +195,10 @@ export class CollisionSystem {
 
     // 蘑菇碰壁反转
     this.scene.physics.add.collider(mushroom, this.groundLayer, (obj) => {
-      const mBody = (obj as Phaser.Types.Physics.Arcade.GameObjectWithBody).body as ArcadeBody
+      if (!(obj instanceof Phaser.Physics.Arcade.Sprite) || !obj.body) return
+      const mBody = obj.body as ArcadeBody
       if (mBody.blocked.left || mBody.blocked.right) {
-        body.setVelocityX(-body.velocity.x)
+        mBody.setVelocityX(-mBody.velocity.x)
       }
     })
   }

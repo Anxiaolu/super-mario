@@ -34,6 +34,7 @@ export class UIScene extends Phaser.Scene {
   private scoreImg: Phaser.GameObjects.Image | null = null
   private coinImg: Phaser.GameObjects.Image | null = null
   private timeImg: Phaser.GameObjects.Image | null = null
+  private livesImg: Phaser.GameObjects.Image | null = null
 
   constructor() {
     super({ key: 'UIScene' })
@@ -64,6 +65,7 @@ export class UIScene extends Phaser.Scene {
     // 动态数值
     this.refreshText('score', '000000')
     this.refreshText('coins', '00')
+    this.refreshText('lives', '03')
     this.refreshText('time', '400')
 
     this.game.events.on('update-hud', this.handleUpdate, this)
@@ -80,14 +82,17 @@ export class UIScene extends Phaser.Scene {
       case 'time':
         this.refreshText('time', String(data.value).padStart(3, '0'))
         break
+      case 'lives':
+        this.refreshText('lives', String(data.value).padStart(2, '0'))
+        break
     }
   }
 
   private refreshText(id: string, text: string): void {
-    const pos = { score: { x: 8, y: 10 }, coins: { x: 104, y: 10 }, time: { x: 210, y: 10 } }[id]
+    const pos = { score: { x: 8, y: 10 }, coins: { x: 104, y: 10 }, lives: { x: 128, y: 10 }, time: { x: 210, y: 10 } }[id]
     if (!pos) return
 
-    const oldImg = id === 'score' ? this.scoreImg : id === 'coins' ? this.coinImg : this.timeImg
+    const oldImg = id === 'score' ? this.scoreImg : id === 'coins' ? this.coinImg : id === 'lives' ? this.livesImg : this.timeImg
     const texKey = `txt-${id}`
     if (oldImg) {
       oldImg.destroy()
@@ -102,6 +107,7 @@ export class UIScene extends Phaser.Scene {
 
     if (id === 'score') this.scoreImg = img
     else if (id === 'coins') this.coinImg = img
+    else if (id === 'lives') this.livesImg = img
     else this.timeImg = img
   }
 

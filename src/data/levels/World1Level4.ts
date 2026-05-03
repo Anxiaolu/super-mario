@@ -7,7 +7,7 @@ const H = 12  // 硬砖
 const B = 2   // 砖块
 
 // prettier-ignore
-export const WORLD_1_4: LevelData = (() => {
+export const WORLD_1_LEVEL_4: LevelData = (() => {
   const COLS = 176
   const ROWS = 15
   const tiles: number[][] = Array.from({ length: ROWS }, () => new Array(COLS).fill(0))

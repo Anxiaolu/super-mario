@@ -9,7 +9,6 @@ export const UNDERGROUND_BG = '#000000'
 export const MARIO_WALK_SPEED = 100
 export const MARIO_RUN_SPEED = 170
 export const MARIO_JUMP_VELOCITY = -500
-export const MARIO_ACCELERATION = 2400    // 近乎瞬时加速
 export const MARIO_DECELERATION = 600     // 适中的滑动停止
 
 // 敌人速度

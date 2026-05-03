@@ -8,7 +8,7 @@ const H = 12  // 硬砖（不可破坏）
 const B = 2   // 砖块
 
 // prettier-ignore
-export const WORLD_1_3: LevelData = (() => {
+export const WORLD_1_LEVEL_3: LevelData = (() => {
   const COLS = 192
   const ROWS = 15
   const tiles: number[][] = Array.from({ length: ROWS }, () => new Array(COLS).fill(0))
