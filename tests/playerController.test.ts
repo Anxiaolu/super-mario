@@ -18,6 +18,8 @@ const config: PlayerMotionConfig = {
   jumpCutoffVelocity: -260,
   coyoteTimeSeconds: 0.1,
   jumpBufferSeconds: 0.12,
+  hardLandingVelocityY: 460,
+  landingSlowSeconds: 0.08,
   knockbackVelocityX: 240,
   knockbackVelocityY: -320,
   knockbackControlLockSeconds: 0.18,
@@ -225,5 +227,59 @@ describe('玩家手感控制器', () => {
     );
 
     expect(nextState.velocityX).toBeLessThan(0);
+  });
+
+  test('高速下落着地时会触发硬着陆标记和落地缓冲', () => {
+    const fallingState = {
+      ...createPlayerMotionState(),
+      velocityY: 520,
+      onGround: false,
+    };
+
+    const nextState = stepPlayerMotion(
+      fallingState,
+      {
+        moveX: 1,
+        jumpPressed: false,
+        jumpHeld: false,
+        actionHeld: false,
+      },
+      {
+        deltaSeconds: 0.016,
+        nowSeconds: 2,
+        isGrounded: true,
+      },
+      config,
+    );
+
+    expect(nextState.hardLanding).toBe(true);
+    expect(nextState.landingSlowUntilSeconds).toBeCloseTo(2.08);
+  });
+
+  test('落地缓冲期间横向速度不会立即暴涨', () => {
+    const groundedState = {
+      ...createPlayerMotionState(),
+      velocityX: 40,
+      onGround: true,
+      landingSlowUntilSeconds: 3.06,
+    };
+
+    const nextState = stepPlayerMotion(
+      groundedState,
+      {
+        moveX: 1,
+        jumpPressed: false,
+        jumpHeld: false,
+        actionHeld: false,
+      },
+      {
+        deltaSeconds: 0.05,
+        nowSeconds: 3.02,
+        isGrounded: true,
+      },
+      config,
+    );
+
+    expect(nextState.velocityX).toBeLessThan(120);
   });
 });

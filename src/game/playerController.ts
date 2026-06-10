@@ -10,6 +10,8 @@ export interface PlayerMotionConfig {
   jumpCutoffVelocity: number;
   coyoteTimeSeconds: number;
   jumpBufferSeconds: number;
+  hardLandingVelocityY: number;
+  landingSlowSeconds: number;
   knockbackVelocityX: number;
   knockbackVelocityY: number;
   knockbackControlLockSeconds: number;
@@ -22,6 +24,8 @@ export interface PlayerMotionState {
   onGround: boolean;
   lastGroundedAtSeconds: number;
   jumpPressedAtSeconds: number | null;
+  landingSlowUntilSeconds: number;
+  hardLanding: boolean;
   controlLockedUntilSeconds: number;
   invulnerableUntilSeconds: number;
 }
@@ -52,6 +56,8 @@ export function createPlayerMotionState(): PlayerMotionState {
     onGround: false,
     lastGroundedAtSeconds: Number.NEGATIVE_INFINITY,
     jumpPressedAtSeconds: null,
+    landingSlowUntilSeconds: 0,
+    hardLanding: false,
     controlLockedUntilSeconds: 0,
     invulnerableUntilSeconds: 0,
   };
@@ -69,14 +75,21 @@ export function stepPlayerMotion(
   const hasBufferedJump =
     jumpPressedAtSeconds !== null && context.nowSeconds - jumpPressedAtSeconds <= config.jumpBufferSeconds;
   const isControlLocked = context.nowSeconds < state.controlLockedUntilSeconds;
+  const justLanded = context.isGrounded && !state.onGround;
+  const hardLanding = justLanded && state.velocityY >= config.hardLandingVelocityY;
+  const landingSlowUntilSeconds = hardLanding
+    ? context.nowSeconds + config.landingSlowSeconds
+    : state.landingSlowUntilSeconds;
+  const isLandingSlow = context.nowSeconds < landingSlowUntilSeconds;
 
   const targetSpeed = isControlLocked ? state.velocityX : input.moveX * (input.actionHeld ? config.runSpeed : config.walkSpeed);
   const acceleration = context.isGrounded ? config.groundAcceleration : config.airAcceleration;
   const deceleration = context.isGrounded ? config.groundDeceleration : config.airDeceleration;
+  const horizontalStep = ((isControlLocked || input.moveX === 0) ? deceleration : acceleration) * context.deltaSeconds;
   const velocityX = moveToward(
     state.velocityX,
     targetSpeed,
-    ((isControlLocked || input.moveX === 0) ? deceleration : acceleration) * context.deltaSeconds,
+    isLandingSlow ? horizontalStep * 0.6 : horizontalStep,
   );
 
   let velocityY = state.velocityY + config.gravity * context.deltaSeconds;
@@ -97,6 +110,8 @@ export function stepPlayerMotion(
     onGround: context.isGrounded,
     lastGroundedAtSeconds,
     jumpPressedAtSeconds: nextJumpPressedAtSeconds,
+    landingSlowUntilSeconds,
+    hardLanding,
     controlLockedUntilSeconds: state.controlLockedUntilSeconds,
     invulnerableUntilSeconds: state.invulnerableUntilSeconds,
   };
@@ -115,6 +130,8 @@ export function applyKnockback(
     velocityY: config.knockbackVelocityY,
     onGround: false,
     jumpPressedAtSeconds: null,
+    landingSlowUntilSeconds: 0,
+    hardLanding: false,
     controlLockedUntilSeconds: context.nowSeconds + config.knockbackControlLockSeconds,
     invulnerableUntilSeconds: context.nowSeconds + config.invulnerabilitySeconds,
   };

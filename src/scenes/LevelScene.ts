@@ -29,6 +29,7 @@ interface PlayerRuntime {
   width: number;
   height: number;
   motion: PlayerMotionState;
+  landingTween?: Phaser.Tweens.Tween;
 }
 
 interface PlatformRuntime {
@@ -71,6 +72,8 @@ const playerMotionConfig = {
   jumpCutoffVelocity: -260,
   coyoteTimeSeconds: 0.1,
   jumpBufferSeconds: 0.12,
+  hardLandingVelocityY: 460,
+  landingSlowSeconds: 0.08,
   knockbackVelocityX: 240,
   knockbackVelocityY: -320,
   knockbackControlLockSeconds: 0.18,
@@ -270,6 +273,7 @@ export class LevelScene extends Phaser.Scene {
     this.player.y += this.player.motion.velocityY * deltaSeconds;
     this.player.motion.onGround = false;
     this.resolvePlatformLanding(previousY);
+    this.updateLandingFeedback();
 
     if (this.player.y > this.level.height + 140) {
       this.hurtPlayer();
@@ -458,6 +462,23 @@ export class LevelScene extends Phaser.Scene {
 
     const blinkOn = Math.floor(nowSeconds * 18) % 2 === 0;
     return blinkOn ? 0.35 : 0.95;
+  }
+
+  private updateLandingFeedback(): void {
+    if (!this.player.motion.hardLanding) {
+      return;
+    }
+
+    this.player.motion.hardLanding = false;
+    this.player.landingTween?.stop();
+    this.player.shape.setScale(1.1, 0.84);
+    this.player.landingTween = this.tweens.add({
+      targets: this.player.shape,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 120,
+      ease: 'Quad.Out',
+    });
   }
 
   private findNearestEnemyX(): number {
