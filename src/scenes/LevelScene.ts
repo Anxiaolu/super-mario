@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { collectCoin, completeLevel, createGameState, damagePlayer } from '../game/gameState';
 import { getTouchInputState } from '../game/touchControls';
 import { parseLevel } from '../game/levelLoader';
+import { applyKnockback, createPlayerMotionState, stepPlayerMotion, type PlayerMotionState } from '../game/playerController';
 import { resolvePlayerEnemyCollision, stepEnemyPatrol } from '../game/enemies';
 import type {
   CoinData,
@@ -27,10 +28,7 @@ interface PlayerRuntime {
   y: number;
   width: number;
   height: number;
-  velocityX: number;
-  velocityY: number;
-  onGround: boolean;
-  invulnerableUntil: number;
+  motion: PlayerMotionState;
 }
 
 interface PlatformRuntime {
@@ -59,6 +57,22 @@ interface KeyboardKeys {
 const levels: Record<number, LevelData> = {
   1: levelOneData as LevelData,
   2: levelTwoData as LevelData,
+};
+
+const playerMotionConfig = {
+  walkSpeed: 245,
+  runSpeed: 310,
+  groundAcceleration: 1600,
+  airAcceleration: 900,
+  groundDeceleration: 1900,
+  airDeceleration: 480,
+  gravity: 1650,
+  jumpVelocity: -620,
+  coyoteTimeSeconds: 0.1,
+  jumpBufferSeconds: 0.12,
+  knockbackVelocityX: 240,
+  knockbackVelocityY: -320,
+  invulnerabilitySeconds: 1.4,
 };
 
 export class LevelScene extends Phaser.Scene {
@@ -194,10 +208,7 @@ export class LevelScene extends Phaser.Scene {
       y: spawn.y,
       width,
       height,
-      velocityX: 0,
-      velocityY: 0,
-      onGround: false,
-      invulnerableUntil: 0,
+      motion: createPlayerMotionState(),
     };
   }
 
@@ -231,25 +242,31 @@ export class LevelScene extends Phaser.Scene {
 
   private updatePlayer(deltaSeconds: number): void {
     const input = this.readInput();
-    const speed = input.action ? 310 : 245;
-    const gravity = 1650;
-    const jumpVelocity = -620;
     const jumpPressed = input.jump && !this.wasJumpDown;
     const previousY = this.player.y;
+    const wasGrounded = this.player.motion.onGround;
 
     this.wasJumpDown = input.jump;
-    this.player.velocityX = input.moveX * speed;
+    this.player.motion = stepPlayerMotion(
+      this.player.motion,
+      {
+        moveX: input.moveX,
+        jumpPressed,
+        jumpHeld: input.jump,
+        actionHeld: input.action,
+      },
+      {
+        deltaSeconds,
+        nowSeconds: this.time.now / 1000,
+        isGrounded: wasGrounded,
+      },
+      playerMotionConfig,
+    );
 
-    if (jumpPressed && this.player.onGround) {
-      this.player.velocityY = jumpVelocity;
-      this.player.onGround = false;
-    }
-
-    this.player.velocityY += gravity * deltaSeconds;
-    this.player.x += this.player.velocityX * deltaSeconds;
+    this.player.x += this.player.motion.velocityX * deltaSeconds;
     this.player.x = clamp(this.player.x, this.player.width / 2, this.level.width - this.player.width / 2);
-    this.player.y += this.player.velocityY * deltaSeconds;
-    this.player.onGround = false;
+    this.player.y += this.player.motion.velocityY * deltaSeconds;
+    this.player.motion.onGround = false;
     this.resolvePlatformLanding(previousY);
 
     if (this.player.y > this.level.height + 140) {
@@ -257,7 +274,7 @@ export class LevelScene extends Phaser.Scene {
     }
 
     this.player.shape.setPosition(this.player.x, this.player.y);
-    this.player.shape.setAlpha(this.player.invulnerableUntil > this.time.now ? 0.55 : 1);
+    this.player.shape.setAlpha(this.player.motion.invulnerableUntilSeconds > this.time.now / 1000 ? 0.55 : 1);
   }
 
   private readInput(): { moveX: -1 | 0 | 1; jump: boolean; action: boolean } {
@@ -291,10 +308,14 @@ export class LevelScene extends Phaser.Scene {
         this.player.x - this.player.width / 2 < data.x + data.width;
       const crossesTop = previousBottom <= data.y && nextBottom >= data.y;
 
-      if (this.player.velocityY >= 0 && overlapsX && crossesTop) {
+      if (this.player.motion.velocityY >= 0 && overlapsX && crossesTop) {
+        if (this.player.motion.velocityY < 0) {
+          continue;
+        }
+
         this.player.y = data.y - this.player.height / 2;
-        this.player.velocityY = 0;
-        this.player.onGround = true;
+        this.player.motion.velocityY = 0;
+        this.player.motion.onGround = true;
         return;
       }
     }
@@ -312,7 +333,7 @@ export class LevelScene extends Phaser.Scene {
       if (rectsOverlap(this.getPlayerRect(), enemy.data)) {
         const result = resolvePlayerEnemyCollision(
           {
-            velocityY: this.player.velocityY,
+            velocityY: this.player.motion.velocityY,
             bottom: this.player.y + this.player.height / 2,
           },
           enemy.data,
@@ -321,7 +342,7 @@ export class LevelScene extends Phaser.Scene {
         if (result.type === 'stomp') {
           enemy.data = result.enemy;
           enemy.shape.destroy();
-          this.player.velocityY = -430;
+          this.player.motion.velocityY = -430;
           this.gameState = {
             ...this.gameState,
             score: this.gameState.score + 50,
@@ -389,10 +410,11 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private hurtPlayer(): void {
-    if (this.player.invulnerableUntil > this.time.now || this.isChangingScene) {
+    if (this.player.motion.invulnerableUntilSeconds > this.time.now / 1000 || this.isChangingScene) {
       return;
     }
 
+    const nearestEnemy = this.findNearestEnemyX();
     this.gameState = damagePlayer(this.gameState);
 
     if (this.gameState.status === 'game-over') {
@@ -405,11 +427,15 @@ export class LevelScene extends Phaser.Scene {
       return;
     }
 
-    this.player.x = this.level.playerSpawn.x;
-    this.player.y = this.level.playerSpawn.y;
-    this.player.velocityX = 0;
-    this.player.velocityY = 0;
-    this.player.invulnerableUntil = this.time.now + 1400;
+    this.player.motion = applyKnockback(
+      this.player.motion,
+      {
+        sourceX: nearestEnemy,
+        playerX: this.player.x,
+        nowSeconds: this.time.now / 1000,
+      },
+      playerMotionConfig,
+    );
   }
 
   private getPlayerRect(): { x: number; y: number; width: number; height: number } {
@@ -419,6 +445,21 @@ export class LevelScene extends Phaser.Scene {
       width: this.player.width,
       height: this.player.height,
     };
+  }
+
+  private findNearestEnemyX(): number {
+    const activeEnemies = this.enemies.filter((enemy) => !enemy.data.defeated);
+
+    if (activeEnemies.length === 0) {
+      return this.player.x < this.level.width / 2 ? this.player.x + 1 : this.player.x - 1;
+    }
+
+    return activeEnemies.reduce((nearest, enemy) => {
+      const nearestDistance = Math.abs(nearest - this.player.x);
+      const currentDistance = Math.abs(enemy.data.x - this.player.x);
+
+      return currentDistance < nearestDistance ? enemy.data.x : nearest;
+    }, activeEnemies[0].data.x);
   }
 }
 
