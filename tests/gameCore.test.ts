@@ -94,6 +94,7 @@ describe('敌人行为', () => {
   test('敌人巡逻到边界会转向并限制在巡逻范围内', () => {
     const enemy = {
       ...levelData.enemies[0],
+      kind: 'walker' as const,
       x: 755,
       direction: 1 as const,
       defeated: false,
@@ -108,11 +109,55 @@ describe('敌人行为', () => {
   test('玩家从上方踩到敌人会击败敌人，否则玩家受伤', () => {
     const enemy = {
       ...levelData.enemies[0],
+      kind: 'walker' as const,
       direction: -1 as const,
       defeated: false,
     };
 
     expect(resolvePlayerEnemyCollision({ velocityY: 260, bottom: 418 }, enemy).type).toBe('stomp');
     expect(resolvePlayerEnemyCollision({ velocityY: 0, bottom: 430 }, enemy).type).toBe('hurt');
+  });
+
+  test('跳跃敌人到达跳跃间隔后会向上起跳', () => {
+    const hopper = {
+      ...levelData.enemies[0],
+      kind: 'hopper' as const,
+      direction: 1 as const,
+      defeated: false,
+      velocityY: 0,
+      jumpIntervalSeconds: 1.2,
+      jumpVelocity: -420,
+      lastJumpAtSeconds: 0,
+    };
+
+    const nextEnemy = stepEnemyPatrol(hopper, 0.016, 1.25);
+
+    expect(nextEnemy.velocityY).toBe(-420);
+    expect(nextEnemy.lastJumpAtSeconds).toBe(1.25);
+  });
+
+  test('浮空敌人碰到高度边界会反向漂浮', () => {
+    const flyer = {
+      ...levelData.enemies[0],
+      kind: 'flyer' as const,
+      direction: -1 as const,
+      defeated: false,
+      hoverMinY: 360,
+      hoverMaxY: 420,
+      hoverSpeed: 40,
+      hoverDirection: 1 as const,
+    };
+
+    const nextEnemy = stepEnemyPatrol(
+      {
+        ...flyer,
+        y: 418,
+      },
+      0.1,
+      0.5,
+    );
+
+    expect(nextEnemy.y).toBe(420);
+    expect(nextEnemy.hoverDirection).toBe(-1);
   });
 });

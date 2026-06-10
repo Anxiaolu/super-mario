@@ -25,9 +25,20 @@ export interface CoinData extends Vector2 {
 
 export interface EnemyData extends Rect {
   id: string;
+  kind?: 'walker' | 'hopper' | 'flyer';
   patrolMinX: number;
   patrolMaxX: number;
   speed: number;
+  baseY?: number;
+  velocityY?: number;
+  jumpIntervalSeconds?: number;
+  jumpVelocity?: number;
+  lastJumpAtSeconds?: number;
+  gravity?: number;
+  hoverMinY?: number;
+  hoverMaxY?: number;
+  hoverSpeed?: number;
+  hoverDirection?: -1 | 1;
 }
 
 export interface LevelData {
@@ -63,8 +74,10 @@ export interface GameState {
 }
 
 export interface RuntimeEnemy extends EnemyData {
+  kind: 'walker' | 'hopper' | 'flyer';
   direction: -1 | 1;
   defeated: boolean;
+  hoverDirection?: -1 | 1;
 }
 
 export interface PlayerEnemyContact {

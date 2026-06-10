@@ -188,12 +188,19 @@ export class LevelScene extends Phaser.Scene {
     this.enemies = this.level.enemies.map((enemy) => {
       const runtimeEnemy: RuntimeEnemy = {
         ...enemy,
+        kind: enemy.kind ?? 'walker',
         direction: -1,
         defeated: false,
+        hoverDirection: enemy.hoverDirection,
       };
+
+      const fillColor =
+        runtimeEnemy.kind === 'hopper' ? 0xa95f4b : runtimeEnemy.kind === 'flyer' ? 0x7b68ee : 0x5d6f3d;
+      const strokeColor =
+        runtimeEnemy.kind === 'hopper' ? 0x6d3728 : runtimeEnemy.kind === 'flyer' ? 0x4937a8 : 0x334225;
       const shape = this.add
-        .ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width, enemy.height, 0x5d6f3d)
-        .setStrokeStyle(4, 0x334225);
+        .ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width, enemy.height, fillColor)
+        .setStrokeStyle(4, strokeColor);
 
       return {
         data: runtimeEnemy,
@@ -357,7 +364,7 @@ export class LevelScene extends Phaser.Scene {
         continue;
       }
 
-      enemy.data = stepEnemyPatrol(enemy.data, deltaSeconds);
+      enemy.data = stepEnemyPatrol(enemy.data, deltaSeconds, this.time.now / 1000);
       enemy.shape.setPosition(enemy.data.x + enemy.data.width / 2, enemy.data.y + enemy.data.height / 2);
 
       if (rectsOverlap(this.getPlayerRect(), enemy.data)) {

@@ -26,6 +26,16 @@ describe('原创关卡内容', () => {
     expect(levelTwo.enemies.length).toBeLessThanOrEqual(6);
     expect(levelTwo.coins.length).toBeGreaterThan(levelOne.coins.length);
   });
+
+  test('第 2 关包含跳跃敌人和浮空敌人，形成更丰富的节奏', () => {
+    const level = parseLevel(levelTwoData as LevelData);
+
+    const hopperCount = level.enemies.filter((enemy) => enemy.kind === 'hopper').length;
+    const flyerCount = level.enemies.filter((enemy) => enemy.kind === 'flyer').length;
+
+    expect(hopperCount).toBeGreaterThanOrEqual(1);
+    expect(flyerCount).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('手机输入状态', () => {
