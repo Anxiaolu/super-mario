@@ -4,12 +4,13 @@ import { getTouchInputState } from '../game/touchControls';
 import { parseLevel } from '../game/levelLoader';
 import { applyKnockback, createPlayerMotionState, stepPlayerMotion, type PlayerMotionState } from '../game/playerController';
 import { resolvePlayerEnemyCollision, stepEnemyPatrol } from '../game/enemies';
+import { getLandingVelocityY, stepDynamicPlatform } from '../game/platforms';
 import type {
   CoinData,
   GameState,
   LevelData,
   ParsedLevel,
-  PlatformData,
+  RuntimePlatform,
   RuntimeEnemy,
 } from '../game/types';
 import { gameHeight, gameWidth } from '../gameConfig';
@@ -33,8 +34,10 @@ interface PlayerRuntime {
 }
 
 interface PlatformRuntime {
-  data: PlatformData;
+  data: RuntimePlatform;
   shape: Phaser.GameObjects.Rectangle;
+  previousX: number;
+  previousY: number;
 }
 
 interface CoinRuntime {
@@ -130,6 +133,7 @@ export class LevelScene extends Phaser.Scene {
     }
 
     const deltaSeconds = Math.min(delta / 1000, 0.05);
+    this.updatePlatforms(deltaSeconds);
     this.updatePlayer(deltaSeconds);
     this.updateEnemies(deltaSeconds);
     this.updateCoins();
@@ -156,11 +160,16 @@ export class LevelScene extends Phaser.Scene {
           platform.y + platform.height / 2,
           platform.width,
           platform.height,
-          0x7a9352,
+          platform.kind === 'spring' ? 0xe9c46a : 0x7a9352,
         )
-        .setStrokeStyle(4, 0x4b6835);
+        .setStrokeStyle(4, platform.kind === 'spring' ? 0xa86f1f : 0x4b6835);
 
-      return { data: platform, shape };
+      return {
+        data: platform,
+        shape,
+        previousX: platform.x,
+        previousY: platform.y,
+      };
     });
   }
 
@@ -320,10 +329,25 @@ export class LevelScene extends Phaser.Scene {
         }
 
         this.player.y = data.y - this.player.height / 2;
-        this.player.motion.velocityY = 0;
+        this.player.x += data.x - platform.previousX;
+        this.player.motion.velocityY = data.kind === 'spring'
+          ? getLandingVelocityY(data, playerMotionConfig.jumpVelocity)
+          : 0;
         this.player.motion.onGround = true;
         return;
       }
+    }
+  }
+
+  private updatePlatforms(deltaSeconds: number): void {
+    for (const platform of this.platforms) {
+      platform.previousX = platform.data.x;
+      platform.previousY = platform.data.y;
+      platform.data = stepDynamicPlatform(platform.data, deltaSeconds);
+      platform.shape.setPosition(
+        platform.data.x + platform.data.width / 2,
+        platform.data.y + platform.data.height / 2,
+      );
     }
   }
 

@@ -20,9 +20,29 @@
     { "id": "ground-4", "x": 1680, "y": 500, "width": 460, "height": 100 },
     { "id": "ground-5", "x": 2300, "y": 500, "width": 700, "height": 100 },
     { "id": "cloud-1", "x": 360, "y": 380, "width": 160, "height": 32 },
-    { "id": "cloud-2", "x": 760, "y": 330, "width": 160, "height": 32 },
+    {
+      "id": "cloud-2",
+      "x": 760,
+      "y": 330,
+      "width": 160,
+      "height": 32,
+      "kind": "moving",
+      "moveAxis": "x",
+      "moveMin": 760,
+      "moveMax": 920,
+      "moveSpeed": 80
+    },
     { "id": "cloud-3", "x": 1180, "y": 370, "width": 180, "height": 32 },
     { "id": "cloud-4", "x": 1520, "y": 300, "width": 160, "height": 32 },
+    {
+      "id": "spring-1",
+      "x": 1700,
+      "y": 476,
+      "width": 70,
+      "height": 16,
+      "kind": "spring",
+      "bounceVelocity": -920
+    },
     { "id": "cloud-5", "x": 1960, "y": 350, "width": 200, "height": 32 },
     { "id": "cloud-6", "x": 2440, "y": 310, "width": 190, "height": 32 }
   ],

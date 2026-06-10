@@ -10,6 +10,12 @@ export interface Rect extends Vector2 {
 
 export interface PlatformData extends Rect {
   id: string;
+  kind?: 'static' | 'moving' | 'spring';
+  moveAxis?: 'x' | 'y';
+  moveMin?: number;
+  moveMax?: number;
+  moveSpeed?: number;
+  bounceVelocity?: number;
 }
 
 export interface CoinData extends Vector2 {
@@ -36,8 +42,14 @@ export interface LevelData {
   enemies: EnemyData[];
 }
 
-export interface ParsedLevel extends Omit<LevelData, 'goal'> {
+export interface ParsedLevel extends Omit<LevelData, 'goal' | 'platforms'> {
   goal: Rect;
+  platforms: RuntimePlatform[];
+}
+
+export interface RuntimePlatform extends PlatformData {
+  kind: 'static' | 'moving' | 'spring';
+  direction?: -1 | 1;
 }
 
 export type GameStatus = 'playing' | 'game-over' | 'completed';

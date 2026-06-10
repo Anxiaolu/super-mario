@@ -1,4 +1,5 @@
 import type { LevelData, ParsedLevel } from './types';
+import { createRuntimePlatform } from './platforms';
 
 export function parseLevel(levelData: LevelData): ParsedLevel {
   if (!levelData.goal) {
@@ -8,7 +9,7 @@ export function parseLevel(levelData: LevelData): ParsedLevel {
   return {
     ...levelData,
     goal: levelData.goal,
-    platforms: [...levelData.platforms],
+    platforms: levelData.platforms.map(createRuntimePlatform),
     coins: [...levelData.coins],
     enemies: [...levelData.enemies],
   };
