@@ -20,7 +20,13 @@ export function stepDynamicPlatform(platform: RuntimePlatform, deltaSeconds: num
     };
   }
 
-  if (platform.kind !== 'moving' || !platform.moveAxis || !platform.moveMin || !platform.moveMax || !platform.moveSpeed) {
+  if (
+    platform.kind !== 'moving' ||
+    platform.moveAxis === undefined ||
+    platform.moveMin === undefined ||
+    platform.moveMax === undefined ||
+    platform.moveSpeed === undefined
+  ) {
     return platform;
   }
 

@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
-import { collectCoin, completeLevel, createGameState, damagePlayer } from '../game/gameState';
+import {
+  buildCompletionSummary,
+  collectCoin,
+  completeLevel,
+  createGameState,
+  damagePlayer,
+  formatTimeRemaining,
+  tickTimer,
+} from '../game/gameState';
 import { getTouchInputState } from '../game/touchControls';
 import { parseLevel } from '../game/levelLoader';
 import { applyKnockback, createPlayerMotionState, stepPlayerMotion, type PlayerMotionState } from '../game/playerController';
@@ -135,9 +143,38 @@ export class LevelScene extends Phaser.Scene {
     const deltaSeconds = Math.min(delta / 1000, 0.05);
     this.updatePlatforms(deltaSeconds);
     this.updatePlayer(deltaSeconds);
+
+    if (this.isChangingScene) {
+      return;
+    }
+
     this.updateEnemies(deltaSeconds);
+
+    if (this.isChangingScene) {
+      return;
+    }
+
     this.updateCoins();
     this.updateGoal();
+
+    if (this.isChangingScene) {
+      return;
+    }
+
+    this.gameState = tickTimer(this.gameState, deltaSeconds);
+
+    if (this.gameState.status === 'game-over') {
+      this.isChangingScene = true;
+      const summary = buildCompletionSummary(this.gameState);
+      this.scene.start('CompleteScene', {
+        score: this.gameState.score,
+        title: '时间耗尽',
+        message: '点击重新挑战',
+        summaryLines: summary.lines,
+      });
+      return;
+    }
+
     this.updateCamera();
     this.updateHud();
   }
@@ -277,6 +314,8 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private updatePlayer(deltaSeconds: number): void {
+    this.carryPlayerWithPlatform();
+
     const input = this.readInput();
     const jumpPressed = input.jump && !this.wasJumpDown;
     const previousY = this.player.y;
@@ -308,11 +347,38 @@ export class LevelScene extends Phaser.Scene {
     this.updateLandingFeedback();
 
     if (this.player.y > this.level.height + 140) {
-      this.hurtPlayer();
+      this.handlePlayerFallOut();
+      return;
     }
 
     this.player.shape.setPosition(this.player.x, this.player.y);
     this.player.shape.setAlpha(this.getPlayerAlpha());
+  }
+
+  private carryPlayerWithPlatform(): void {
+    if (!this.player.motion.onGround) {
+      return;
+    }
+
+    const previousBottom = this.player.y + this.player.height / 2;
+
+    for (const platform of this.platforms) {
+      const data = platform.data;
+      if (!data.visible || data.consumed) {
+        continue;
+      }
+
+      const overlapsPreviousX =
+        this.player.x + this.player.width / 2 > platform.previousX &&
+        this.player.x - this.player.width / 2 < platform.previousX + data.width;
+      const stoodOnTop = Math.abs(previousBottom - platform.previousY) <= 1;
+
+      if (overlapsPreviousX && stoodOnTop) {
+        this.player.x += data.x - platform.previousX;
+        this.player.y += data.y - platform.previousY;
+        return;
+      }
+    }
   }
 
   private readInput(): { moveX: -1 | 0 | 1; jump: boolean; action: boolean } {
@@ -390,6 +456,9 @@ export class LevelScene extends Phaser.Scene {
 
     for (const platform of this.platforms) {
       const data = platform.data;
+      if (data.consumed || (!data.visible && data.kind !== 'hidden')) {
+        continue;
+      }
       const overlapsX =
         this.player.x + this.player.width / 2 > data.x &&
         this.player.x - this.player.width / 2 < data.x + data.width;
@@ -468,10 +537,12 @@ export class LevelScene extends Phaser.Scene {
       this.gameState = completeLevel(this.gameState);
 
       if (this.gameState.status === 'completed') {
+        const summary = buildCompletionSummary(this.gameState);
         this.scene.start('CompleteScene', {
           score: this.gameState.score,
-          title: '两关通关',
+          title: summary.title,
           message: '点击重新开始',
+          summaryLines: summary.lines,
         });
         return;
       }
@@ -492,7 +563,9 @@ export class LevelScene extends Phaser.Scene {
 
   private updateHud(): void {
     this.hudText?.setText(
-      `金币 ${this.gameState.score}  生命 ${this.gameState.lives}  第 ${this.gameState.currentLevel} 关`,
+      `金币 ${this.gameState.score}  生命 ${this.gameState.lives}  时间 ${formatTimeRemaining(
+        this.gameState.timeRemainingSeconds,
+      )}  第 ${this.gameState.currentLevel} 关`,
     );
   }
 
@@ -506,10 +579,12 @@ export class LevelScene extends Phaser.Scene {
 
     if (this.gameState.status === 'game-over') {
       this.isChangingScene = true;
+      const summary = buildCompletionSummary(this.gameState);
       this.scene.start('CompleteScene', {
         score: this.gameState.score,
-        title: '旅程结束',
+        title: summary.title,
         message: '点击重新挑战',
+        summaryLines: summary.lines,
       });
       return;
     }
@@ -523,6 +598,32 @@ export class LevelScene extends Phaser.Scene {
       },
       playerMotionConfig,
     );
+  }
+
+  private handlePlayerFallOut(): void {
+    this.gameState = damagePlayer(this.gameState);
+
+    if (this.gameState.status === 'game-over') {
+      this.isChangingScene = true;
+      const summary = buildCompletionSummary(this.gameState);
+      this.scene.start('CompleteScene', {
+        score: this.gameState.score,
+        title: summary.title,
+        message: '点击重新挑战',
+        summaryLines: summary.lines,
+      });
+      return;
+    }
+
+    this.player.x = this.level.playerSpawn.x;
+    this.player.y = this.level.playerSpawn.y;
+    this.player.motion = {
+      ...createPlayerMotionState(),
+      invulnerableUntilSeconds: this.time.now / 1000 + playerMotionConfig.invulnerabilitySeconds,
+    };
+    this.wasJumpDown = false;
+    this.player.shape.setPosition(this.player.x, this.player.y);
+    this.player.shape.setAlpha(this.getPlayerAlpha());
   }
 
   private getPlayerRect(): { x: number; y: number; width: number; height: number } {

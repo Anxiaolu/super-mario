@@ -5,6 +5,55 @@ import { applyButtonState, createInputState, getOrientationHint } from '../src/g
 import { parseLevel } from '../src/game/levelLoader';
 import type { LevelData } from '../src/game/types';
 
+interface FakePointerEvent {
+  preventDefault(): void;
+}
+
+type FakeEventHandler = (event: FakePointerEvent) => void;
+
+class FakeControlButton {
+  dataset: { control: string };
+  classList = {
+    classes: new Set<string>(),
+    add: (className: string): void => {
+      this.classList.classes.add(className);
+    },
+    remove: (className: string): void => {
+      this.classList.classes.delete(className);
+    },
+    contains: (className: string): boolean => this.classList.classes.has(className),
+  };
+  private listeners = new Map<string, FakeEventHandler[]>();
+
+  constructor(control: string) {
+    this.dataset = { control };
+  }
+
+  addEventListener(type: string, handler: FakeEventHandler): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), handler]);
+  }
+
+  dispatch(type: string): void {
+    for (const handler of this.listeners.get(type) ?? []) {
+      handler({ preventDefault: () => undefined });
+    }
+  }
+}
+
+class FakeEventTarget {
+  private listeners = new Map<string, FakeEventHandler[]>();
+
+  addEventListener(type: string, handler: FakeEventHandler): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), handler]);
+  }
+
+  dispatch(type: string): void {
+    for (const handler of this.listeners.get(type) ?? []) {
+      handler({ preventDefault: () => undefined });
+    }
+  }
+}
+
 describe('原创关卡内容', () => {
   test('第 1 关是教学关，包含终点、收集物和 2-3 个敌人', () => {
     const level = parseLevel(levelOneData as LevelData);
@@ -63,5 +112,25 @@ describe('手机输入状态', () => {
     expect(state.moveX).toBe(0);
     expect(getOrientationHint(390, 844)).toBe('请旋转设备进入横屏游玩');
     expect(getOrientationHint(844, 390)).toBeNull();
+  });
+
+  test('触屏按钮在全局释放事件后会清空输入状态', async () => {
+    const { getTouchInputState, setupTouchControls } = await import('../src/game/touchControls');
+    const leftButton = new FakeControlButton('left');
+    const documentRef = {
+      querySelectorAll: () => [leftButton],
+    };
+    const windowRef = new FakeEventTarget();
+    const setupControls = setupTouchControls as unknown as (
+      documentRef: Document,
+      windowRef: Window,
+    ) => void;
+
+    setupControls(documentRef as unknown as Document, windowRef as unknown as Window);
+    leftButton.dispatch('pointerdown');
+    windowRef.dispatch('pointerup');
+
+    expect(getTouchInputState().moveX).toBe(0);
+    expect(leftButton.classList.contains('is-active')).toBe(false);
   });
 });

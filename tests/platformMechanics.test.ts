@@ -33,6 +33,28 @@ describe('平台机关逻辑', () => {
     expect(nextPlatform.direction).toBe(-1);
   });
 
+  test('移动平台允许 moveMin 为 0', () => {
+    const platform: RuntimePlatform = {
+      id: 'moving-zero',
+      x: 10,
+      y: 330,
+      width: 160,
+      height: 32,
+      kind: 'moving',
+      visible: true,
+      moveAxis: 'x',
+      moveMin: 0,
+      moveMax: 120,
+      moveSpeed: 50,
+      direction: -1,
+    };
+
+    const nextPlatform = stepDynamicPlatform(platform, 0.1);
+
+    expect(nextPlatform.x).toBe(5);
+    expect(nextPlatform.direction).toBe(-1);
+  });
+
   test('弹簧平台落地时会返回更强的起跳速度', () => {
     const springVelocityY = getLandingVelocityY(
       {

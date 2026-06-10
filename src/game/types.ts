@@ -75,6 +75,8 @@ export interface GameState {
   lives: number;
   status: GameStatus;
   collectedCoinIds: string[];
+  timeRemainingSeconds: number;
+  timeBonusAwarded: number;
 }
 
 export interface RuntimeEnemy extends EnemyData {

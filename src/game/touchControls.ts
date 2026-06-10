@@ -9,8 +9,10 @@ const buttonState: ButtonState = {
 
 let inputState = createInputState();
 
-export function setupTouchControls(documentRef: Document = document): void {
-  const buttons = documentRef.querySelectorAll<HTMLButtonElement>('[data-control]');
+export function setupTouchControls(documentRef: Document = document, windowRef: Window = window): void {
+  const buttons = [...documentRef.querySelectorAll<HTMLButtonElement>('[data-control]')];
+
+  resetTouchState(buttons);
 
   buttons.forEach((button) => {
     const control = button.dataset.control;
@@ -38,10 +40,30 @@ export function setupTouchControls(documentRef: Document = document): void {
     button.addEventListener('pointercancel', release);
     button.addEventListener('pointerleave', release);
   });
+
+  const resetAllButtons = (): void => {
+    resetTouchState(buttons);
+  };
+
+  windowRef.addEventListener('pointerup', resetAllButtons);
+  windowRef.addEventListener('pointercancel', resetAllButtons);
+  windowRef.addEventListener('blur', resetAllButtons);
 }
 
 export function getTouchInputState(): InputState {
   return inputState;
+}
+
+function resetTouchState(buttons: Iterable<Pick<HTMLButtonElement, 'classList'>>): void {
+  buttonState.left = false;
+  buttonState.right = false;
+  buttonState.jump = false;
+  buttonState.action = false;
+  inputState = applyButtonState(inputState, buttonState);
+
+  for (const button of buttons) {
+    button.classList.remove('is-active');
+  }
 }
 
 function isControlName(value: string | undefined): value is keyof ButtonState {

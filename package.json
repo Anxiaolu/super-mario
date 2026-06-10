@@ -11,12 +11,12 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "phaser": "latest"
+    "phaser": "4.1.0"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "latest",
-    "typescript": "latest",
-    "vite": "latest",
-    "vitest": "latest"
+    "@vitest/coverage-v8": "4.1.8",
+    "typescript": "6.0.3",
+    "vite": "8.0.16",
+    "vitest": "4.1.8"
   }
 }

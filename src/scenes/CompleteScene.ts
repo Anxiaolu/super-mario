@@ -4,12 +4,14 @@ interface CompleteSceneData {
   score?: number;
   title?: string;
   message?: string;
+  summaryLines?: string[];
 }
 
 export class CompleteScene extends Phaser.Scene {
   private score = 0;
   private title = '通关完成';
   private message = '点击重新开始';
+  private summaryLines: string[] = [];
 
   constructor() {
     super('CompleteScene');
@@ -19,6 +21,7 @@ export class CompleteScene extends Phaser.Scene {
     this.score = data.score ?? 0;
     this.title = data.title ?? '通关完成';
     this.message = data.message ?? '点击重新开始';
+    this.summaryLines = data.summaryLines ?? [];
   }
 
   create(): void {
@@ -38,8 +41,19 @@ export class CompleteScene extends Phaser.Scene {
         color: '#f6c85f',
       })
       .setOrigin(0.5);
+    if (this.summaryLines.length > 0) {
+      this.add
+        .text(480, 338, this.summaryLines.join('\n'), {
+          fontFamily: 'Trebuchet MS, Noto Sans SC, sans-serif',
+          fontSize: '22px',
+          color: '#fff8df',
+          align: 'center',
+          lineSpacing: 10,
+        })
+        .setOrigin(0.5);
+    }
     this.add
-      .text(480, 360, this.message, {
+      .text(480, 440, this.message, {
         fontFamily: 'Trebuchet MS, Noto Sans SC, sans-serif',
         fontSize: '26px',
         color: '#ffffff',
