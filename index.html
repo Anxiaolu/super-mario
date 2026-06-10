@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>原创平台跳跃游戏</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="orientation-hint" aria-live="polite">请旋转设备进入横屏游玩</div>
+    <div id="touch-controls" aria-label="触屏控制">
+      <div class="control-cluster control-cluster-left">
+        <button class="control-button" type="button" data-control="left" aria-label="向左">←</button>
+        <button class="control-button" type="button" data-control="right" aria-label="向右">→</button>
+      </div>
+      <div class="control-cluster control-cluster-right">
+        <button class="control-button control-button-primary" type="button" data-control="jump" aria-label="跳跃">跳</button>
+        <button class="control-button" type="button" data-control="action" aria-label="冲刺">冲</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

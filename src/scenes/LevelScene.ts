@@ -1,0 +1,439 @@
+import Phaser from 'phaser';
+import { collectCoin, completeLevel, createGameState, damagePlayer } from '../game/gameState';
+import { getTouchInputState } from '../game/touchControls';
+import { parseLevel } from '../game/levelLoader';
+import { resolvePlayerEnemyCollision, stepEnemyPatrol } from '../game/enemies';
+import type {
+  CoinData,
+  GameState,
+  LevelData,
+  ParsedLevel,
+  PlatformData,
+  RuntimeEnemy,
+} from '../game/types';
+import { gameHeight, gameWidth } from '../gameConfig';
+import levelOneData from '../levels/level1.json';
+import levelTwoData from '../levels/level2.json';
+
+interface LevelSceneData {
+  levelNumber?: number;
+  score?: number;
+  lives?: number;
+}
+
+interface PlayerRuntime {
+  shape: Phaser.GameObjects.Rectangle;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  velocityX: number;
+  velocityY: number;
+  onGround: boolean;
+  invulnerableUntil: number;
+}
+
+interface PlatformRuntime {
+  data: PlatformData;
+  shape: Phaser.GameObjects.Rectangle;
+}
+
+interface CoinRuntime {
+  data: CoinData;
+  shape: Phaser.GameObjects.Ellipse;
+  collected: boolean;
+}
+
+interface EnemyRuntime {
+  data: RuntimeEnemy;
+  shape: Phaser.GameObjects.Ellipse;
+}
+
+interface KeyboardKeys {
+  cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+  keyA: Phaser.Input.Keyboard.Key;
+  keyD: Phaser.Input.Keyboard.Key;
+  keyW: Phaser.Input.Keyboard.Key;
+}
+
+const levels: Record<number, LevelData> = {
+  1: levelOneData as LevelData,
+  2: levelTwoData as LevelData,
+};
+
+export class LevelScene extends Phaser.Scene {
+  private levelNumber = 1;
+  private level!: ParsedLevel;
+  private gameState!: GameState;
+  private player!: PlayerRuntime;
+  private platforms: PlatformRuntime[] = [];
+  private coins: CoinRuntime[] = [];
+  private enemies: EnemyRuntime[] = [];
+  private keyboardKeys?: KeyboardKeys;
+  private hudText?: Phaser.GameObjects.Text;
+  private wasJumpDown = false;
+  private isChangingScene = false;
+
+  constructor() {
+    super('LevelScene');
+  }
+
+  init(data: LevelSceneData): void {
+    this.levelNumber = data.levelNumber ?? 1;
+    this.gameState = {
+      ...createGameState(this.levelNumber),
+      score: data.score ?? 0,
+      lives: data.lives ?? 3,
+    };
+    this.platforms = [];
+    this.coins = [];
+    this.enemies = [];
+    this.wasJumpDown = false;
+    this.isChangingScene = false;
+  }
+
+  create(): void {
+    this.level = parseLevel(levels[this.levelNumber]);
+    this.cameras.main.setBounds(0, 0, this.level.width, this.level.height);
+    this.drawBackground();
+    this.createPlatforms();
+    this.createCoins();
+    this.createEnemies();
+    this.createGoal();
+    this.createPlayer();
+    this.createHud();
+    this.createKeyboard();
+  }
+
+  update(_time: number, delta: number): void {
+    if (this.isChangingScene) {
+      return;
+    }
+
+    const deltaSeconds = Math.min(delta / 1000, 0.05);
+    this.updatePlayer(deltaSeconds);
+    this.updateEnemies(deltaSeconds);
+    this.updateCoins();
+    this.updateGoal();
+    this.updateCamera();
+    this.updateHud();
+  }
+
+  private drawBackground(): void {
+    this.add.rectangle(this.level.width / 2, this.level.height / 2, this.level.width, this.level.height, 0x9bdcff);
+    this.add.circle(160, 96, 42, 0xffe6a7, 0.95);
+
+    for (let x = 180; x < this.level.width; x += 620) {
+      this.add.ellipse(x, this.level.height - 76, 520, 170, 0x8bcf78);
+      this.add.ellipse(x + 230, this.level.height - 44, 460, 130, 0x6fbf6a);
+    }
+  }
+
+  private createPlatforms(): void {
+    this.platforms = this.level.platforms.map((platform) => {
+      const shape = this.add
+        .rectangle(
+          platform.x + platform.width / 2,
+          platform.y + platform.height / 2,
+          platform.width,
+          platform.height,
+          0x7a9352,
+        )
+        .setStrokeStyle(4, 0x4b6835);
+
+      return { data: platform, shape };
+    });
+  }
+
+  private createCoins(): void {
+    this.coins = this.level.coins.map((coin) => {
+      const shape = this.add.ellipse(coin.x, coin.y, 28, 28, 0xf6c85f).setStrokeStyle(4, 0xc28c37);
+      return {
+        data: coin,
+        shape,
+        collected: false,
+      };
+    });
+  }
+
+  private createEnemies(): void {
+    this.enemies = this.level.enemies.map((enemy) => {
+      const runtimeEnemy: RuntimeEnemy = {
+        ...enemy,
+        direction: -1,
+        defeated: false,
+      };
+      const shape = this.add
+        .ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width, enemy.height, 0x5d6f3d)
+        .setStrokeStyle(4, 0x334225);
+
+      return {
+        data: runtimeEnemy,
+        shape,
+      };
+    });
+  }
+
+  private createGoal(): void {
+    const { goal } = this.level;
+    this.add.rectangle(goal.x + goal.width / 2, goal.y + goal.height / 2, goal.width, goal.height, 0xe9c46a);
+    this.add.rectangle(goal.x + goal.width / 2, goal.y + 10, goal.width + 30, 20, 0xe76f51);
+  }
+
+  private createPlayer(): void {
+    const spawn = this.level.playerSpawn;
+    const width = 34;
+    const height = 52;
+    const shape = this.add
+      .rectangle(spawn.x, spawn.y, width, height, 0xf36f45)
+      .setStrokeStyle(4, 0x9f432f);
+
+    this.player = {
+      shape,
+      x: spawn.x,
+      y: spawn.y,
+      width,
+      height,
+      velocityX: 0,
+      velocityY: 0,
+      onGround: false,
+      invulnerableUntil: 0,
+    };
+  }
+
+  private createHud(): void {
+    this.hudText = this.add
+      .text(18, 16, '', {
+        fontFamily: 'Trebuchet MS, Noto Sans SC, sans-serif',
+        fontSize: '24px',
+        color: '#263238',
+        backgroundColor: 'rgba(255, 248, 223, 0.78)',
+        padding: { x: 12, y: 8 },
+      })
+      .setScrollFactor(0);
+    this.updateHud();
+  }
+
+  private createKeyboard(): void {
+    const keyboard = this.input.keyboard;
+
+    if (!keyboard) {
+      return;
+    }
+
+    this.keyboardKeys = {
+      cursors: keyboard.createCursorKeys(),
+      keyA: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      keyD: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      keyW: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+    };
+  }
+
+  private updatePlayer(deltaSeconds: number): void {
+    const input = this.readInput();
+    const speed = input.action ? 310 : 245;
+    const gravity = 1650;
+    const jumpVelocity = -620;
+    const jumpPressed = input.jump && !this.wasJumpDown;
+    const previousY = this.player.y;
+
+    this.wasJumpDown = input.jump;
+    this.player.velocityX = input.moveX * speed;
+
+    if (jumpPressed && this.player.onGround) {
+      this.player.velocityY = jumpVelocity;
+      this.player.onGround = false;
+    }
+
+    this.player.velocityY += gravity * deltaSeconds;
+    this.player.x += this.player.velocityX * deltaSeconds;
+    this.player.x = clamp(this.player.x, this.player.width / 2, this.level.width - this.player.width / 2);
+    this.player.y += this.player.velocityY * deltaSeconds;
+    this.player.onGround = false;
+    this.resolvePlatformLanding(previousY);
+
+    if (this.player.y > this.level.height + 140) {
+      this.hurtPlayer();
+    }
+
+    this.player.shape.setPosition(this.player.x, this.player.y);
+    this.player.shape.setAlpha(this.player.invulnerableUntil > this.time.now ? 0.55 : 1);
+  }
+
+  private readInput(): { moveX: -1 | 0 | 1; jump: boolean; action: boolean } {
+    const touchInput = getTouchInputState();
+    const keyboard = this.keyboardKeys;
+
+    if (!keyboard) {
+      return touchInput;
+    }
+
+    const left = touchInput.moveX < 0 || keyboard.cursors.left.isDown || keyboard.keyA.isDown;
+    const right = touchInput.moveX > 0 || keyboard.cursors.right.isDown || keyboard.keyD.isDown;
+    const jump = touchInput.jump || keyboard.cursors.space.isDown || keyboard.cursors.up.isDown || keyboard.keyW.isDown;
+    const action = touchInput.action || keyboard.cursors.shift.isDown;
+
+    return {
+      moveX: left === right ? 0 : left ? -1 : 1,
+      jump,
+      action,
+    };
+  }
+
+  private resolvePlatformLanding(previousY: number): void {
+    const previousBottom = previousY + this.player.height / 2;
+    const nextBottom = this.player.y + this.player.height / 2;
+
+    for (const platform of this.platforms) {
+      const data = platform.data;
+      const overlapsX =
+        this.player.x + this.player.width / 2 > data.x &&
+        this.player.x - this.player.width / 2 < data.x + data.width;
+      const crossesTop = previousBottom <= data.y && nextBottom >= data.y;
+
+      if (this.player.velocityY >= 0 && overlapsX && crossesTop) {
+        this.player.y = data.y - this.player.height / 2;
+        this.player.velocityY = 0;
+        this.player.onGround = true;
+        return;
+      }
+    }
+  }
+
+  private updateEnemies(deltaSeconds: number): void {
+    for (const enemy of this.enemies) {
+      if (enemy.data.defeated) {
+        continue;
+      }
+
+      enemy.data = stepEnemyPatrol(enemy.data, deltaSeconds);
+      enemy.shape.setPosition(enemy.data.x + enemy.data.width / 2, enemy.data.y + enemy.data.height / 2);
+
+      if (rectsOverlap(this.getPlayerRect(), enemy.data)) {
+        const result = resolvePlayerEnemyCollision(
+          {
+            velocityY: this.player.velocityY,
+            bottom: this.player.y + this.player.height / 2,
+          },
+          enemy.data,
+        );
+
+        if (result.type === 'stomp') {
+          enemy.data = result.enemy;
+          enemy.shape.destroy();
+          this.player.velocityY = -430;
+          this.gameState = {
+            ...this.gameState,
+            score: this.gameState.score + 50,
+          };
+        } else {
+          this.hurtPlayer();
+        }
+      }
+    }
+  }
+
+  private updateCoins(): void {
+    for (const coin of this.coins) {
+      if (coin.collected) {
+        continue;
+      }
+
+      const coinRect = {
+        x: coin.data.x - 14,
+        y: coin.data.y - 14,
+        width: 28,
+        height: 28,
+      };
+
+      if (rectsOverlap(this.getPlayerRect(), coinRect)) {
+        coin.collected = true;
+        coin.shape.destroy();
+        this.gameState = collectCoin(this.gameState, coin.data);
+      }
+    }
+  }
+
+  private updateGoal(): void {
+    if (rectsOverlap(this.getPlayerRect(), this.level.goal)) {
+      this.isChangingScene = true;
+      this.gameState = completeLevel(this.gameState);
+
+      if (this.gameState.status === 'completed') {
+        this.scene.start('CompleteScene', {
+          score: this.gameState.score,
+          title: '两关通关',
+          message: '点击重新开始',
+        });
+        return;
+      }
+
+      this.scene.start('LevelScene', {
+        levelNumber: this.gameState.currentLevel,
+        score: this.gameState.score,
+        lives: this.gameState.lives,
+      });
+    }
+  }
+
+  private updateCamera(): void {
+    const maxScrollX = Math.max(0, this.level.width - gameWidth);
+    this.cameras.main.scrollX = clamp(this.player.x - gameWidth * 0.36, 0, maxScrollX);
+    this.cameras.main.scrollY = Math.max(0, this.level.height - gameHeight);
+  }
+
+  private updateHud(): void {
+    this.hudText?.setText(
+      `金币 ${this.gameState.score}  生命 ${this.gameState.lives}  第 ${this.gameState.currentLevel} 关`,
+    );
+  }
+
+  private hurtPlayer(): void {
+    if (this.player.invulnerableUntil > this.time.now || this.isChangingScene) {
+      return;
+    }
+
+    this.gameState = damagePlayer(this.gameState);
+
+    if (this.gameState.status === 'game-over') {
+      this.isChangingScene = true;
+      this.scene.start('CompleteScene', {
+        score: this.gameState.score,
+        title: '旅程结束',
+        message: '点击重新挑战',
+      });
+      return;
+    }
+
+    this.player.x = this.level.playerSpawn.x;
+    this.player.y = this.level.playerSpawn.y;
+    this.player.velocityX = 0;
+    this.player.velocityY = 0;
+    this.player.invulnerableUntil = this.time.now + 1400;
+  }
+
+  private getPlayerRect(): { x: number; y: number; width: number; height: number } {
+    return {
+      x: this.player.x - this.player.width / 2,
+      y: this.player.y - this.player.height / 2,
+      width: this.player.width,
+      height: this.player.height,
+    };
+  }
+}
+
+function rectsOverlap(
+  first: { x: number; y: number; width: number; height: number },
+  second: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}

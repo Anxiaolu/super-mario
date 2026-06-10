@@ -1,0 +1,96 @@
+{
+  "id": "level-2",
+  "name": "云莓山径",
+  "width": 3000,
+  "height": 620,
+  "playerSpawn": {
+    "x": 96,
+    "y": 408
+  },
+  "goal": {
+    "x": 2860,
+    "y": 344,
+    "width": 56,
+    "height": 136
+  },
+  "platforms": [
+    { "id": "ground-1", "x": 0, "y": 500, "width": 440, "height": 100 },
+    { "id": "ground-2", "x": 560, "y": 500, "width": 420, "height": 100 },
+    { "id": "ground-3", "x": 1120, "y": 500, "width": 420, "height": 100 },
+    { "id": "ground-4", "x": 1680, "y": 500, "width": 460, "height": 100 },
+    { "id": "ground-5", "x": 2300, "y": 500, "width": 700, "height": 100 },
+    { "id": "cloud-1", "x": 360, "y": 380, "width": 160, "height": 32 },
+    { "id": "cloud-2", "x": 760, "y": 330, "width": 160, "height": 32 },
+    { "id": "cloud-3", "x": 1180, "y": 370, "width": 180, "height": 32 },
+    { "id": "cloud-4", "x": 1520, "y": 300, "width": 160, "height": 32 },
+    { "id": "cloud-5", "x": 1960, "y": 350, "width": 200, "height": 32 },
+    { "id": "cloud-6", "x": 2440, "y": 310, "width": 190, "height": 32 }
+  ],
+  "coins": [
+    { "id": "coin-1", "x": 390, "y": 340, "value": 10 },
+    { "id": "coin-2", "x": 450, "y": 340, "value": 10 },
+    { "id": "coin-3", "x": 790, "y": 290, "value": 10 },
+    { "id": "coin-4", "x": 850, "y": 290, "value": 10 },
+    { "id": "coin-5", "x": 1210, "y": 330, "value": 10 },
+    { "id": "coin-6", "x": 1280, "y": 330, "value": 10 },
+    { "id": "coin-7", "x": 1550, "y": 260, "value": 10 },
+    { "id": "coin-8", "x": 1610, "y": 260, "value": 10 },
+    { "id": "coin-9", "x": 1990, "y": 310, "value": 10 },
+    { "id": "coin-10", "x": 2070, "y": 310, "value": 10 },
+    { "id": "coin-11", "x": 2470, "y": 270, "value": 10 },
+    { "id": "coin-12", "x": 2550, "y": 270, "value": 10 },
+    { "id": "coin-13", "x": 2700, "y": 450, "value": 25 }
+  ],
+  "enemies": [
+    {
+      "id": "beetle-1",
+      "x": 620,
+      "y": 470,
+      "width": 44,
+      "height": 30,
+      "patrolMinX": 580,
+      "patrolMaxX": 920,
+      "speed": 62
+    },
+    {
+      "id": "beetle-2",
+      "x": 1180,
+      "y": 470,
+      "width": 44,
+      "height": 30,
+      "patrolMinX": 1140,
+      "patrolMaxX": 1490,
+      "speed": 66
+    },
+    {
+      "id": "beetle-3",
+      "x": 1740,
+      "y": 470,
+      "width": 44,
+      "height": 30,
+      "patrolMinX": 1700,
+      "patrolMaxX": 2080,
+      "speed": 68
+    },
+    {
+      "id": "beetle-4",
+      "x": 2360,
+      "y": 470,
+      "width": 44,
+      "height": 30,
+      "patrolMinX": 2320,
+      "patrolMaxX": 2620,
+      "speed": 64
+    },
+    {
+      "id": "beetle-5",
+      "x": 2700,
+      "y": 470,
+      "width": 44,
+      "height": 30,
+      "patrolMinX": 2640,
+      "patrolMaxX": 2840,
+      "speed": 70
+    }
+  ]
+}

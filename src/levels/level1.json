@@ -1,0 +1,68 @@
+{
+  "id": "level-1",
+  "name": "晨光草坡",
+  "width": 2300,
+  "height": 540,
+  "playerSpawn": {
+    "x": 96,
+    "y": 388
+  },
+  "goal": {
+    "x": 2160,
+    "y": 364,
+    "width": 56,
+    "height": 112
+  },
+  "platforms": [
+    { "id": "ground-1", "x": 0, "y": 460, "width": 560, "height": 80 },
+    { "id": "ground-2", "x": 640, "y": 460, "width": 480, "height": 80 },
+    { "id": "ground-3", "x": 1220, "y": 460, "width": 520, "height": 80 },
+    { "id": "ground-4", "x": 1840, "y": 460, "width": 460, "height": 80 },
+    { "id": "step-1", "x": 360, "y": 360, "width": 180, "height": 32 },
+    { "id": "step-2", "x": 820, "y": 340, "width": 180, "height": 32 },
+    { "id": "step-3", "x": 1410, "y": 320, "width": 220, "height": 32 }
+  ],
+  "coins": [
+    { "id": "coin-1", "x": 390, "y": 320, "value": 10 },
+    { "id": "coin-2", "x": 450, "y": 320, "value": 10 },
+    { "id": "coin-3", "x": 510, "y": 320, "value": 10 },
+    { "id": "coin-4", "x": 850, "y": 300, "value": 10 },
+    { "id": "coin-5", "x": 910, "y": 300, "value": 10 },
+    { "id": "coin-6", "x": 1330, "y": 410, "value": 10 },
+    { "id": "coin-7", "x": 1480, "y": 280, "value": 10 },
+    { "id": "coin-8", "x": 1560, "y": 280, "value": 10 },
+    { "id": "coin-9", "x": 1980, "y": 410, "value": 10 }
+  ],
+  "enemies": [
+    {
+      "id": "snail-1",
+      "x": 690,
+      "y": 430,
+      "width": 42,
+      "height": 30,
+      "patrolMinX": 660,
+      "patrolMaxX": 1040,
+      "speed": 48
+    },
+    {
+      "id": "snail-2",
+      "x": 1270,
+      "y": 430,
+      "width": 42,
+      "height": 30,
+      "patrolMinX": 1240,
+      "patrolMaxX": 1690,
+      "speed": 56
+    },
+    {
+      "id": "snail-3",
+      "x": 1940,
+      "y": 430,
+      "width": 42,
+      "height": 30,
+      "patrolMinX": 1860,
+      "patrolMaxX": 2100,
+      "speed": 50
+    }
+  ]
+}
