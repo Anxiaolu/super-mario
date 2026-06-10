@@ -10,12 +10,13 @@ export interface Rect extends Vector2 {
 
 export interface PlatformData extends Rect {
   id: string;
-  kind?: 'static' | 'moving' | 'spring';
+  kind?: 'static' | 'moving' | 'spring' | 'hidden' | 'fragile';
   moveAxis?: 'x' | 'y';
   moveMin?: number;
   moveMax?: number;
   moveSpeed?: number;
   bounceVelocity?: number;
+  collapseDelaySeconds?: number;
 }
 
 export interface CoinData extends Vector2 {
@@ -59,8 +60,11 @@ export interface ParsedLevel extends Omit<LevelData, 'goal' | 'platforms'> {
 }
 
 export interface RuntimePlatform extends PlatformData {
-  kind: 'static' | 'moving' | 'spring';
+  kind: 'static' | 'moving' | 'spring' | 'hidden' | 'fragile';
   direction?: -1 | 1;
+  visible: boolean;
+  collapseAtSeconds?: number;
+  consumed?: boolean;
 }
 
 export type GameStatus = 'playing' | 'game-over' | 'completed';

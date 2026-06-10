@@ -44,6 +44,15 @@
       "bounceVelocity": -920
     },
     { "id": "cloud-5", "x": 1960, "y": 350, "width": 200, "height": 32 },
+    {
+      "id": "fragile-1",
+      "x": 2140,
+      "y": 280,
+      "width": 120,
+      "height": 24,
+      "kind": "fragile",
+      "collapseDelaySeconds": 0.35
+    },
     { "id": "cloud-6", "x": 2440, "y": 310, "width": 190, "height": 32 }
   ],
   "coins": [

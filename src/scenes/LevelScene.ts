@@ -4,7 +4,7 @@ import { getTouchInputState } from '../game/touchControls';
 import { parseLevel } from '../game/levelLoader';
 import { applyKnockback, createPlayerMotionState, stepPlayerMotion, type PlayerMotionState } from '../game/playerController';
 import { resolvePlayerEnemyCollision, stepEnemyPatrol } from '../game/enemies';
-import { getLandingVelocityY, stepDynamicPlatform } from '../game/platforms';
+import { armFragilePlatform, getLandingVelocityY, revealHiddenPlatform, stepDynamicPlatform } from '../game/platforms';
 import type {
   CoinData,
   GameState,
@@ -154,15 +154,30 @@ export class LevelScene extends Phaser.Scene {
 
   private createPlatforms(): void {
     this.platforms = this.level.platforms.map((platform) => {
+      const fillColor =
+        platform.kind === 'spring'
+          ? 0xe9c46a
+          : platform.kind === 'hidden'
+            ? 0x7a9352
+            : platform.kind === 'fragile'
+              ? 0xc78958
+              : 0x7a9352;
+      const strokeColor =
+        platform.kind === 'spring'
+          ? 0xa86f1f
+          : platform.kind === 'fragile'
+            ? 0x7b4823
+            : 0x4b6835;
       const shape = this.add
         .rectangle(
           platform.x + platform.width / 2,
           platform.y + platform.height / 2,
           platform.width,
           platform.height,
-          platform.kind === 'spring' ? 0xe9c46a : 0x7a9352,
+          fillColor,
         )
-        .setStrokeStyle(4, platform.kind === 'spring' ? 0xa86f1f : 0x4b6835);
+        .setStrokeStyle(4, strokeColor)
+        .setAlpha(platform.visible ? 1 : 0.12);
 
       return {
         data: platform,
@@ -288,6 +303,7 @@ export class LevelScene extends Phaser.Scene {
     this.player.x = clamp(this.player.x, this.player.width / 2, this.level.width - this.player.width / 2);
     this.player.y += this.player.motion.velocityY * deltaSeconds;
     this.player.motion.onGround = false;
+    this.resolvePlatformHeadHit(previousY);
     this.resolvePlatformLanding(previousY);
     this.updateLandingFeedback();
 
@@ -325,6 +341,10 @@ export class LevelScene extends Phaser.Scene {
 
     for (const platform of this.platforms) {
       const data = platform.data;
+      if (!data.visible || data.consumed) {
+        continue;
+      }
+
       const overlapsX =
         this.player.x + this.player.width / 2 > data.x &&
         this.player.x - this.player.width / 2 < data.x + data.width;
@@ -341,6 +361,7 @@ export class LevelScene extends Phaser.Scene {
           ? getLandingVelocityY(data, playerMotionConfig.jumpVelocity)
           : 0;
         this.player.motion.onGround = true;
+        platform.data = armFragilePlatform(platform.data, this.time.now / 1000);
         return;
       }
     }
@@ -350,11 +371,40 @@ export class LevelScene extends Phaser.Scene {
     for (const platform of this.platforms) {
       platform.previousX = platform.data.x;
       platform.previousY = platform.data.y;
-      platform.data = stepDynamicPlatform(platform.data, deltaSeconds);
+      platform.data = stepDynamicPlatform(platform.data, deltaSeconds, this.time.now / 1000);
       platform.shape.setPosition(
         platform.data.x + platform.data.width / 2,
         platform.data.y + platform.data.height / 2,
       );
+      platform.shape.setAlpha(platform.data.visible ? 1 : 0.08);
+    }
+  }
+
+  private resolvePlatformHeadHit(previousY: number): void {
+    if (this.player.motion.velocityY >= 0) {
+      return;
+    }
+
+    const previousTop = previousY - this.player.height / 2;
+    const nextTop = this.player.y - this.player.height / 2;
+
+    for (const platform of this.platforms) {
+      const data = platform.data;
+      const overlapsX =
+        this.player.x + this.player.width / 2 > data.x &&
+        this.player.x - this.player.width / 2 < data.x + data.width;
+      const crossesBottom = previousTop >= data.y + data.height && nextTop <= data.y + data.height;
+
+      if (overlapsX && crossesBottom) {
+        if (data.kind === 'hidden') {
+          platform.data = revealHiddenPlatform(data);
+          platform.shape.setAlpha(1);
+        }
+
+        this.player.y = data.y + data.height + this.player.height / 2;
+        this.player.motion.velocityY = 80;
+        return;
+      }
     }
   }
 

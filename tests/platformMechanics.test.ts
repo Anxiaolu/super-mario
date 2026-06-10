@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
+import levelOneData from '../src/levels/level1.json';
 import levelTwoData from '../src/levels/level2.json';
-import { getLandingVelocityY, stepDynamicPlatform } from '../src/game/platforms';
+import {
+  armFragilePlatform,
+  getLandingVelocityY,
+  revealHiddenPlatform,
+  stepDynamicPlatform,
+} from '../src/game/platforms';
 import { parseLevel } from '../src/game/levelLoader';
 import type { LevelData, RuntimePlatform } from '../src/game/types';
 
@@ -13,6 +19,7 @@ describe('平台机关逻辑', () => {
       width: 160,
       height: 32,
       kind: 'moving',
+      visible: true,
       moveAxis: 'x',
       moveMin: 760,
       moveMax: 800,
@@ -35,12 +42,49 @@ describe('平台机关逻辑', () => {
         width: 70,
         height: 16,
         kind: 'spring',
+        visible: true,
         bounceVelocity: -920,
       },
       -620,
     );
 
     expect(springVelocityY).toBe(-920);
+  });
+
+  test('隐藏块命中后会从不可见变为可见', () => {
+    const revealed = revealHiddenPlatform({
+      id: 'hidden-1',
+      x: 520,
+      y: 280,
+      width: 44,
+      height: 44,
+      kind: 'hidden',
+      visible: false,
+    });
+
+    expect(revealed.visible).toBe(true);
+  });
+
+  test('一次性平台被触发后到时间会塌陷失效', () => {
+    const armedPlatform = armFragilePlatform(
+      {
+        id: 'fragile-1',
+        x: 860,
+        y: 300,
+        width: 120,
+        height: 24,
+        kind: 'fragile',
+        visible: true,
+        collapseDelaySeconds: 0.35,
+      },
+      2,
+    );
+
+    const collapsed = stepDynamicPlatform(armedPlatform, 0.4, 2.4);
+
+    expect(armedPlatform.collapseAtSeconds).toBeCloseTo(2.35);
+    expect(collapsed.consumed).toBe(true);
+    expect(collapsed.visible).toBe(false);
   });
 });
 
@@ -53,5 +97,16 @@ describe('第 2 关机关内容', () => {
 
     expect(movingPlatforms.length).toBeGreaterThanOrEqual(1);
     expect(springPlatforms.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('第 1 关包含至少一个隐藏块，第 2 关包含至少一个一次性平台', () => {
+    const levelOne = parseLevel(levelOneData as LevelData);
+    const levelTwo = parseLevel(levelTwoData as LevelData);
+
+    const hiddenPlatforms = levelOne.platforms.filter((platform) => platform.kind === 'hidden');
+    const fragilePlatforms = levelTwo.platforms.filter((platform) => platform.kind === 'fragile');
+
+    expect(hiddenPlatforms.length).toBeGreaterThanOrEqual(1);
+    expect(fragilePlatforms.length).toBeGreaterThanOrEqual(1);
   });
 });

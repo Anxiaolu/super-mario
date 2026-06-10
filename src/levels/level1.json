@@ -20,7 +20,8 @@
     { "id": "ground-4", "x": 1840, "y": 460, "width": 460, "height": 80 },
     { "id": "step-1", "x": 360, "y": 360, "width": 180, "height": 32 },
     { "id": "step-2", "x": 820, "y": 340, "width": 180, "height": 32 },
-    { "id": "step-3", "x": 1410, "y": 320, "width": 220, "height": 32 }
+    { "id": "step-3", "x": 1410, "y": 320, "width": 220, "height": 32 },
+    { "id": "hidden-1", "x": 1490, "y": 238, "width": 44, "height": 44, "kind": "hidden" }
   ],
   "coins": [
     { "id": "coin-1", "x": 390, "y": 320, "value": 10 },
