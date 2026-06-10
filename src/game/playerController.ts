@@ -7,10 +7,12 @@ export interface PlayerMotionConfig {
   airDeceleration: number;
   gravity: number;
   jumpVelocity: number;
+  jumpCutoffVelocity: number;
   coyoteTimeSeconds: number;
   jumpBufferSeconds: number;
   knockbackVelocityX: number;
   knockbackVelocityY: number;
+  knockbackControlLockSeconds: number;
   invulnerabilitySeconds: number;
 }
 
@@ -20,6 +22,7 @@ export interface PlayerMotionState {
   onGround: boolean;
   lastGroundedAtSeconds: number;
   jumpPressedAtSeconds: number | null;
+  controlLockedUntilSeconds: number;
   invulnerableUntilSeconds: number;
 }
 
@@ -49,6 +52,7 @@ export function createPlayerMotionState(): PlayerMotionState {
     onGround: false,
     lastGroundedAtSeconds: Number.NEGATIVE_INFINITY,
     jumpPressedAtSeconds: null,
+    controlLockedUntilSeconds: 0,
     invulnerableUntilSeconds: 0,
   };
 }
@@ -64,14 +68,15 @@ export function stepPlayerMotion(
   const canUseCoyoteJump = context.nowSeconds - lastGroundedAtSeconds <= config.coyoteTimeSeconds;
   const hasBufferedJump =
     jumpPressedAtSeconds !== null && context.nowSeconds - jumpPressedAtSeconds <= config.jumpBufferSeconds;
+  const isControlLocked = context.nowSeconds < state.controlLockedUntilSeconds;
 
-  const targetSpeed = input.moveX * (input.actionHeld ? config.runSpeed : config.walkSpeed);
+  const targetSpeed = isControlLocked ? state.velocityX : input.moveX * (input.actionHeld ? config.runSpeed : config.walkSpeed);
   const acceleration = context.isGrounded ? config.groundAcceleration : config.airAcceleration;
   const deceleration = context.isGrounded ? config.groundDeceleration : config.airDeceleration;
   const velocityX = moveToward(
     state.velocityX,
     targetSpeed,
-    (input.moveX === 0 ? deceleration : acceleration) * context.deltaSeconds,
+    ((isControlLocked || input.moveX === 0) ? deceleration : acceleration) * context.deltaSeconds,
   );
 
   let velocityY = state.velocityY + config.gravity * context.deltaSeconds;
@@ -82,12 +87,17 @@ export function stepPlayerMotion(
     nextJumpPressedAtSeconds = null;
   }
 
+  if (!input.jumpHeld && velocityY < config.jumpCutoffVelocity) {
+    velocityY = config.jumpCutoffVelocity;
+  }
+
   return {
     velocityX,
     velocityY,
     onGround: context.isGrounded,
     lastGroundedAtSeconds,
     jumpPressedAtSeconds: nextJumpPressedAtSeconds,
+    controlLockedUntilSeconds: state.controlLockedUntilSeconds,
     invulnerableUntilSeconds: state.invulnerableUntilSeconds,
   };
 }
@@ -105,6 +115,7 @@ export function applyKnockback(
     velocityY: config.knockbackVelocityY,
     onGround: false,
     jumpPressedAtSeconds: null,
+    controlLockedUntilSeconds: context.nowSeconds + config.knockbackControlLockSeconds,
     invulnerableUntilSeconds: context.nowSeconds + config.invulnerabilitySeconds,
   };
 }

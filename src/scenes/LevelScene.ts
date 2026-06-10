@@ -68,10 +68,12 @@ const playerMotionConfig = {
   airDeceleration: 480,
   gravity: 1650,
   jumpVelocity: -620,
+  jumpCutoffVelocity: -260,
   coyoteTimeSeconds: 0.1,
   jumpBufferSeconds: 0.12,
   knockbackVelocityX: 240,
   knockbackVelocityY: -320,
+  knockbackControlLockSeconds: 0.18,
   invulnerabilitySeconds: 1.4,
 };
 
@@ -274,7 +276,7 @@ export class LevelScene extends Phaser.Scene {
     }
 
     this.player.shape.setPosition(this.player.x, this.player.y);
-    this.player.shape.setAlpha(this.player.motion.invulnerableUntilSeconds > this.time.now / 1000 ? 0.55 : 1);
+    this.player.shape.setAlpha(this.getPlayerAlpha());
   }
 
   private readInput(): { moveX: -1 | 0 | 1; jump: boolean; action: boolean } {
@@ -445,6 +447,17 @@ export class LevelScene extends Phaser.Scene {
       width: this.player.width,
       height: this.player.height,
     };
+  }
+
+  private getPlayerAlpha(): number {
+    const nowSeconds = this.time.now / 1000;
+
+    if (this.player.motion.invulnerableUntilSeconds <= nowSeconds) {
+      return 1;
+    }
+
+    const blinkOn = Math.floor(nowSeconds * 18) % 2 === 0;
+    return blinkOn ? 0.35 : 0.95;
   }
 
   private findNearestEnemyX(): number {
