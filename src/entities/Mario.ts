@@ -5,9 +5,14 @@ import {
   TEX, GAME, JUMP_CUTOFF_VELOCITY, STOMP_BOUNCE_VELOCITY,
 } from '../config/constants'
 import { InputSystem } from '../systems/InputSystem'
+import {
+  getMarioBodyConfig,
+  getStandUpProbeRect,
+  shouldStayCrouchedWithoutGroundLayer,
+  type PowerState,
+} from './marioBodyConfig'
 
 // 内联类型定义，避免 import type（verbatimModuleSyntax 要求）
-type PowerState = 'small' | 'big' | 'fire'
 type MarioAction = 'idle' | 'walk' | 'run' | 'jump' | 'fall' | 'duck' | 'turn' | 'die'
 
 /** 动画 key 前缀映射 */
@@ -16,18 +21,6 @@ const ANIM_PREFIX: Record<PowerState, string> = {
   big: 'mario-big-',
   fire: 'mario-fire-',
 }
-
-/** 小马里奥物理体尺寸 */
-const SMALL_BODY_W = 12
-const SMALL_BODY_H = 14
-const SMALL_OFFSET_X = 2
-const SMALL_OFFSET_Y = 2
-
-/** 大/火焰马里奥物理体尺寸 */
-const BIG_BODY_W = 12
-const BIG_BODY_H = 30
-const BIG_OFFSET_X = 2
-const BIG_OFFSET_Y = 2
 
 /**
  * 马里奥角色
@@ -52,6 +45,9 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
   jumpHeld = false
   /** 火球冷却计时器(ms) */
   fireballCooldown = 0
+  /** 地形层，用于检测蹲下后是否有空间站起 */
+  private groundLayer: Phaser.Tilemaps.TilemapLayer | null = null
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TEX.MARIO_SMALL_STAND)
 
@@ -64,8 +60,7 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
     if (this.body) {
       const body = this.body as Phaser.Physics.Arcade.Body
       body.setBounce(0)
-      body.setSize(SMALL_BODY_W, SMALL_BODY_H)
-      body.setOffset(SMALL_OFFSET_X, SMALL_OFFSET_Y)
+      this.applyBodyConfig(false)
     }
   }
 
@@ -97,19 +92,27 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
     this.updateAnimation()
   }
 
+  setGroundLayer(layer: Phaser.Tilemaps.TilemapLayer): void {
+    this.groundLayer = layer
+  }
+
   /** 蹲下处理，返回 true 表示消耗该帧不再处理移动 */
   private handleDuck(input: InputSystem, body: Phaser.Physics.Arcade.Body): boolean {
-    if (this.isGrounded && input.isDown && (this.powerState === 'big' || this.powerState === 'fire')) {
+    if (this.isGrounded && input.isDown && this.isBig) {
       this.action = 'duck'
       body.setVelocityX(0)
-      body.setSize(SMALL_BODY_W, SMALL_BODY_H)
-      body.setOffset(SMALL_OFFSET_X, SMALL_OFFSET_Y)
+      this.applyBodyConfig(true)
       this.updateAnimation()
       return true
     }
 
     if (this.action === 'duck') {
-      this.updateBodySize()
+      if (!this.tryStandUp(body)) {
+        this.action = 'duck'
+        body.setVelocityX(0)
+        this.updateAnimation()
+        return true
+      }
     }
     return false
   }
@@ -255,7 +258,7 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
   grow(): void {
     if (this.powerState === 'small') {
       this.powerState = 'big'
-      this.updateBodySize()
+      this.applyBodyConfig(false)
 
       // 简单变大动画：短暂闪烁 + 缩放效果
       this.scene.tweens.add({
@@ -275,7 +278,7 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
   shrink(): void {
     if (this.powerState !== 'small') {
       this.powerState = 'small'
-      this.updateBodySize()
+      this.applyBodyConfig(false)
 
       this.isInvincible = true
       this.invincibleTimer = GAME.INVINCIBLE_DURATION
@@ -375,6 +378,7 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
   /** 变火焰马里奥（body 尺寸与 big 相同，无需更新） */
   goFire(): void {
     this.powerState = 'fire'
+    this.applyBodyConfig(this.action === 'duck')
   }
 
   /** 无敌星星效果 */
@@ -404,15 +408,56 @@ export class Mario extends Phaser.Physics.Arcade.Sprite {
    * 根据当前 powerState 更新物理体尺寸
    */
   private updateBodySize(): void {
+    this.applyBodyConfig(this.action === 'duck')
+  }
+
+  private applyBodyConfig(isCrouching: boolean): void {
     const body = this.body as Phaser.Physics.Arcade.Body
     if (!body) return
 
-    if (this.powerState === 'small') {
-      body.setSize(SMALL_BODY_W, SMALL_BODY_H)
-      body.setOffset(SMALL_OFFSET_X, SMALL_OFFSET_Y)
-    } else {
-      body.setSize(BIG_BODY_W, BIG_BODY_H)
-      body.setOffset(BIG_OFFSET_X, BIG_OFFSET_Y)
+    const config = getMarioBodyConfig(this.powerState, isCrouching)
+    body.setSize(config.width, config.height, false)
+    body.setOffset(config.offsetX, config.offsetY)
+  }
+
+  private tryStandUp(body: Phaser.Physics.Arcade.Body): boolean {
+    const groundLayer = this.resolveGroundLayer()
+
+    if (!groundLayer) {
+      return !shouldStayCrouchedWithoutGroundLayer(this.powerState)
     }
+
+    const targetConfig = getMarioBodyConfig(this.powerState, false)
+    const probeRect = getStandUpProbeRect(body, targetConfig)
+
+    if (probeRect.height > 0) {
+      const blockingTiles = groundLayer.getTilesWithinWorldXY(
+        probeRect.x,
+        probeRect.y,
+        probeRect.width,
+        probeRect.height,
+        { isColliding: true },
+      )
+
+      if (blockingTiles.length > 0) {
+        return false
+      }
+    }
+
+    this.updateBodySize()
+    return true
+  }
+
+  private resolveGroundLayer(): Phaser.Tilemaps.TilemapLayer | null {
+    if (this.groundLayer) {
+      return this.groundLayer
+    }
+
+    const layer = this.scene.children.list.find(
+      (child): child is Phaser.Tilemaps.TilemapLayer => child instanceof Phaser.Tilemaps.TilemapLayer,
+    ) ?? null
+
+    this.groundLayer = layer
+    return layer
   }
 }

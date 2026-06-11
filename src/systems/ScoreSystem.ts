@@ -68,6 +68,7 @@ export class ScoreSystem {
   syncToHud(): void {
     this.emitHud('score', this._score)
     this.emitHud('coins', this._coins)
+    this.emitHud('lives', this._lives)
     this.emitHud('time', this._time)
   }
 
@@ -75,6 +76,6 @@ export class ScoreSystem {
   get coins(): number { return this._coins }
   get lives(): number { return this._lives }
   get time(): number { return this._time }
-  get isGameOver(): boolean { return this._lives < 0 }
+  get isGameOver(): boolean { return this._lives <= 0 }
   get isTimeUp(): boolean { return this._time <= 0 }
 }

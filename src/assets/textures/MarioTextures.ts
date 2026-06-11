@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser'
+import { getDuckTextureOffsets } from '../../entities/marioBodyConfig'
 
 const SIZE = 16
 const BIG_H = 32
@@ -215,6 +216,8 @@ function drawBigMario(
   topPixels: number[][],
   bottomPixels: number[][],
   colors: ColorMap,
+  topOffsetY = 0,
+  bottomOffsetY = SIZE,
 ): void {
   const ct = scene.textures.createCanvas(key, SIZE, BIG_H)
   if (!ct) return
@@ -229,7 +232,7 @@ function drawBigMario(
       const color = colors[idx]
       if (!color) continue
       ctx.fillStyle = color
-      ctx.fillRect(x, y, 1, 1)
+      ctx.fillRect(x, y + topOffsetY, 1, 1)
     }
   }
   // 下半身
@@ -240,7 +243,7 @@ function drawBigMario(
       const color = colors[idx]
       if (!color) continue
       ctx.fillStyle = color
-      ctx.fillRect(x, y + SIZE, 1, 1)
+      ctx.fillRect(x, y + bottomOffsetY, 1, 1)
     }
   }
   ct.update()
@@ -261,12 +264,23 @@ export function generateMarioTextures(scene: Phaser.Scene): void {
   const bigBottomWalk1: number[][] = BIG_BOTTOM_WALK1()
   const bigBottomWalk3: number[][] = BIG_BOTTOM_WALK3()
 
+  const bigDuckOffsets = getDuckTextureOffsets('big')
+  const fireDuckOffsets = getDuckTextureOffsets('fire')
+
   drawBigMario(scene, 'mario-big-stand', MARIO_SMALL_STAND, bigBottom, SMALL_COLORS)
   drawBigMario(scene, 'mario-big-walk-1', MARIO_SMALL_WALK1, bigBottomWalk1, SMALL_COLORS)
   drawBigMario(scene, 'mario-big-walk-2', MARIO_SMALL_WALK2, bigBottom, SMALL_COLORS)
   drawBigMario(scene, 'mario-big-walk-3', MARIO_SMALL_WALK3, bigBottomWalk3, SMALL_COLORS)
   drawBigMario(scene, 'mario-big-jump', MARIO_SMALL_JUMP, BIG_BOTTOM_JUMP(), SMALL_COLORS)
-  drawBigMario(scene, 'mario-big-duck', MARIO_SMALL_STAND, BIG_BOTTOM_DUCK(), SMALL_COLORS)
+  drawBigMario(
+    scene,
+    'mario-big-duck',
+    MARIO_SMALL_STAND,
+    BIG_BOTTOM_DUCK(),
+    SMALL_COLORS,
+    bigDuckOffsets.topOffsetY,
+    bigDuckOffsets.bottomOffsetY,
+  )
   drawBigMario(scene, 'mario-big-turn', MARIO_SMALL_TURN, bigBottom, SMALL_COLORS)
 
   // ===== 火焰马里奥（同大马里奥帧，不同颜色）=====
@@ -275,7 +289,15 @@ export function generateMarioTextures(scene: Phaser.Scene): void {
   drawBigMario(scene, 'mario-fire-walk-2', MARIO_SMALL_WALK2, bigBottom, FIRE_COLORS)
   drawBigMario(scene, 'mario-fire-walk-3', MARIO_SMALL_WALK3, bigBottomWalk3, FIRE_COLORS)
   drawBigMario(scene, 'mario-fire-jump', MARIO_SMALL_JUMP, BIG_BOTTOM_JUMP(), FIRE_COLORS)
-  drawBigMario(scene, 'mario-fire-duck', MARIO_SMALL_STAND, BIG_BOTTOM_DUCK(), FIRE_COLORS)
+  drawBigMario(
+    scene,
+    'mario-fire-duck',
+    MARIO_SMALL_STAND,
+    BIG_BOTTOM_DUCK(),
+    FIRE_COLORS,
+    fireDuckOffsets.topOffsetY,
+    fireDuckOffsets.bottomOffsetY,
+  )
   drawBigMario(scene, 'mario-fire-turn', MARIO_SMALL_TURN, bigBottom, FIRE_COLORS)
 }
 

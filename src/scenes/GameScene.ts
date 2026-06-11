@@ -33,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private enemies!: Phaser.Physics.Arcade.Group
   private items!: Phaser.Physics.Arcade.Group
   private fireballs!: Phaser.Physics.Arcade.Group
+  private enemyFireballs!: Phaser.Physics.Arcade.Group
   private piranhas!: Phaser.Physics.Arcade.Group
   private bowser!: Bowser | null
   private hammers!: Phaser.Physics.Arcade.Group
@@ -55,6 +56,7 @@ export class GameScene extends Phaser.Scene {
     this.timeAccum = 0
     this.levelIndex = this.registry.get('levelIndex') ?? 0
     this.currentLevel = getLevel(this.levelIndex)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this)
 
     // 系统初始化
     this.inputSystem = new InputSystem(this)
@@ -108,6 +110,7 @@ export class GameScene extends Phaser.Scene {
     this.enemies = this.physics.add.group({ allowGravity: true })
     this.items = this.physics.add.group({ allowGravity: true })
     this.fireballs = this.physics.add.group({ allowGravity: true, maxSize: 2 })
+    this.enemyFireballs = this.physics.add.group({ allowGravity: true })
     this.piranhas = this.physics.add.group({ allowGravity: false })
     this.hammers = this.physics.add.group({ allowGravity: true })
 
@@ -117,6 +120,7 @@ export class GameScene extends Phaser.Scene {
       playerStartX * TILE_SIZE + TILE_SIZE / 2,
       playerStartY * TILE_SIZE + TILE_SIZE,
     )
+    this.mario.setGroundLayer(groundLayer)
 
     this.spawnEnemies()
     this.setupBowserCollisions(groundLayer)
@@ -146,6 +150,14 @@ export class GameScene extends Phaser.Scene {
 
     // 火球与地形碰撞
     this.physics.add.collider(this.fireballs, groundLayer, (obj) => {
+      if (!(obj instanceof Fireball)) return
+      const body = obj.body as Phaser.Physics.Arcade.Body
+      if (body.blocked.left || body.blocked.right) {
+        obj.destroy()
+      }
+    })
+
+    this.physics.add.collider(this.enemyFireballs, groundLayer, (obj) => {
       if (!(obj instanceof Fireball)) return
       const body = obj.body as Phaser.Physics.Arcade.Body
       if (body.blocked.left || body.blocked.right) {
@@ -191,6 +203,13 @@ export class GameScene extends Phaser.Scene {
       if (!(marioObj instanceof Mario)) return
       if (!marioObj.isDead) marioObj.hit()
     })
+
+    this.physics.add.overlap(this.mario, this.enemyFireballs, (marioObj, fbObj) => {
+      if (!(marioObj instanceof Mario) || !(fbObj instanceof Fireball)) return
+      if (marioObj.isDead || !fbObj.active) return
+      marioObj.hit()
+      fbObj.destroy()
+    })
   }
 
   private setupEvents(): void {
@@ -217,6 +236,13 @@ export class GameScene extends Phaser.Scene {
 
     // 更新火球
     for (const child of this.fireballs.getChildren()) {
+      const fb = child as Fireball
+      if (fb.active) {
+        fb.update(time, delta)
+      }
+    }
+
+    for (const child of this.enemyFireballs.getChildren()) {
       const fb = child as Fireball
       if (fb.active) {
         fb.update(time, delta)
@@ -342,7 +368,7 @@ export class GameScene extends Phaser.Scene {
       body.setVelocityX(facingRight ? 100 : -100)
       body.setVelocityY(-40)
     }
-    this.fireballs.add(fb)
+    this.enemyFireballs.add(fb)
   }
 
   private handleMarioShoot(x: number, y: number, facingRight: boolean): void {
@@ -406,6 +432,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.inputSystem.shutdown()
     this.events.off('mario-died', this.handleMarioDied, this)
     this.events.off('mario-shoot', this.handleMarioShoot, this)
     this.events.off('bowser-fire', this.handleBowserFire, this)
